@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
 import { initialBusiness, initialBranches, initialBanners, initialDefaultContent, initialPlaylists, initialTVs, initialGroups } from '../data/mockData';
 
 const AppContext = createContext();
@@ -8,14 +8,64 @@ export const AppProvider = ({ children }) => {
     return localStorage.getItem('kiosk_admin_auth') === 'true';
   });
   
-  const [business, setBusiness] = useState(initialBusiness);
-  const [branches, setBranches] = useState(initialBranches);
-  const [banners, setBanners] = useState(initialBanners);
-  const [defaultContent, setDefaultContent] = useState(initialDefaultContent);
-  const [playlists, setPlaylists] = useState(initialPlaylists);
-  const [tvs, setTvs] = useState(initialTVs);
-  const [groups, setGroups] = useState(initialGroups);
+  const [business, setBusiness] = useState(() => {
+    const cached = localStorage.getItem('kiosk_business');
+    return cached ? JSON.parse(cached) : initialBusiness;
+  });
+  const [branches, setBranches] = useState(() => {
+    const cached = localStorage.getItem('kiosk_branches');
+    return cached ? JSON.parse(cached) : initialBranches;
+  });
+  const [banners, setBanners] = useState(() => {
+    const cached = localStorage.getItem('kiosk_banners');
+    return cached ? JSON.parse(cached) : initialBanners;
+  });
+  const [defaultContent, setDefaultContent] = useState(() => {
+    const cached = localStorage.getItem('kiosk_default_content');
+    return cached ? JSON.parse(cached) : initialDefaultContent;
+  });
+  const [playlists, setPlaylists] = useState(() => {
+    const cached = localStorage.getItem('kiosk_playlists');
+    return cached ? JSON.parse(cached) : initialPlaylists;
+  });
+  const [tvs, setTvs] = useState(() => {
+    const cached = localStorage.getItem('kiosk_tvs');
+    return cached ? JSON.parse(cached) : initialTVs;
+  });
+  const [groups, setGroups] = useState(() => {
+    const cached = localStorage.getItem('kiosk_groups');
+    return cached ? JSON.parse(cached) : initialGroups;
+  });
   const [toasts, setToasts] = useState([]);
+
+  // Auto-sync state variables to localStorage when changed
+  useEffect(() => {
+    localStorage.setItem('kiosk_business', JSON.stringify(business));
+  }, [business]);
+
+  useEffect(() => {
+    localStorage.setItem('kiosk_branches', JSON.stringify(branches));
+  }, [branches]);
+
+  useEffect(() => {
+    localStorage.setItem('kiosk_banners', JSON.stringify(banners));
+  }, [banners]);
+
+  useEffect(() => {
+    localStorage.setItem('kiosk_default_content', JSON.stringify(defaultContent));
+  }, [defaultContent]);
+
+  useEffect(() => {
+    localStorage.setItem('kiosk_playlists', JSON.stringify(playlists));
+  }, [playlists]);
+
+  useEffect(() => {
+    localStorage.setItem('kiosk_tvs', JSON.stringify(tvs));
+  }, [tvs]);
+
+  useEffect(() => {
+    localStorage.setItem('kiosk_groups', JSON.stringify(groups));
+  }, [groups]);
 
   // Toast helper
   const showToast = (message, type = 'success') => {

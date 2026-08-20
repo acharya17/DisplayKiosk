@@ -16,11 +16,12 @@ const Groups = () => {
     addGroup, 
     editGroup, 
     deleteGroup, 
-    setGroupStatus,
-    editTV
+    editTV,
+    setGroupStatus
   } = useApp();
 
-  // Navigation State (Detail Workspace)
+  // Layout View States
+  const [viewState, setViewState] = useState('list'); // 'list' | 'add' | 'edit' | 'detail'
   const [selectedGroupId, setSelectedGroupId] = useState(null);
 
   // Search & Filter State
@@ -33,8 +34,6 @@ const Groups = () => {
   const [isError, setIsError] = useState(false);
 
   // Modals Open States
-  const [formOpen, setFormOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState(null);
   const [confirmDeleteTarget, setConfirmDeleteTarget] = useState(null);
 
   // Form State
@@ -63,25 +62,28 @@ const Groups = () => {
   };
 
   const handleOpenAdd = () => {
-    setEditTarget(null);
     setFormData({
       ...initialGroupForm,
       associatedTvIds: []
     });
     setErrors({});
-    setFormOpen(true);
+    setViewState('add');
   };
 
   const handleOpenEdit = (group) => {
     // Collect currently associated TV IDs
     const linkedTvs = tvs.filter(t => t.groupId === group.id).map(t => t.id);
-    setEditTarget(group.id);
     setFormData({
       ...group,
       associatedTvIds: linkedTvs
     });
     setErrors({});
-    setFormOpen(true);
+    setViewState('edit');
+  };
+
+  const handleRowClick = (group) => {
+    setSelectedGroupId(group.id);
+    setViewState('detail');
   };
 
   const validateGroup = () => {
@@ -94,29 +96,22 @@ const Groups = () => {
   const handleSaveGroup = () => {
     if (!validateGroup()) return;
 
-    if (editTarget) {
-      const success = editGroup(editTarget, formData);
-      if (success) setFormOpen(false);
+    if (viewState === 'edit') {
+      const success = editGroup(formData.id, formData);
+      if (success) setViewState('list');
     } else {
       const success = addGroup(formData);
-      if (success) {
-        // If we added TVs during creation, link them as well
-        if (formData.associatedTvIds && formData.associatedTvIds.length > 0) {
-          // Find newly created group id (we can estimate or retrieve by name matches)
-          // To be safe, we also update it in editGroup flow
-        }
-        setFormOpen(false);
-      }
+      if (success) setViewState('list');
     }
   };
 
   const handleDeleteConfirm = () => {
     if (confirmDeleteTarget) {
       deleteGroup(confirmDeleteTarget.id);
-      if (selectedGroupId === confirmDeleteTarget.id) {
-        setSelectedGroupId(null);
-      }
       setConfirmDeleteTarget(null);
+      if (selectedGroupId === confirmDeleteTarget.id) {
+        setViewState('list');
+      }
     }
   };
 
@@ -168,10 +163,17 @@ const Groups = () => {
       field: 'status', 
       header: 'Status', 
       sortable: true,
-      render: (val) => (
-        <span className={`badge badge-${val.toLowerCase()}`}>
-          {val}
-        </span>
+      render: (val, row) => (
+        <label className="switch-control" onClick={(e) => e.stopPropagation()}>
+          <input 
+            type="checkbox" 
+            checked={val === 'Active'} 
+            onChange={() => {
+              setGroupStatus(row.id, val === 'Active' ? 'Inactive' : 'Active');
+            }}
+          />
+          <span className="switch-slider"></span>
+        </label>
       )
     }
   ];
@@ -189,10 +191,22 @@ const Groups = () => {
       <div className="breadcrumb">
         <span>TV Display</span>
         <ChevronRight size={12} className="breadcrumb-separator" />
-        <span className="breadcrumb-item active" style={{ cursor: selectedGroupId ? 'pointer' : 'default' }} onClick={() => setSelectedGroupId(null)}>
+        <span className="breadcrumb-item active" style={{ cursor: viewState !== 'list' ? 'pointer' : 'default' }} onClick={() => setViewState('list')}>
           Display Groups
         </span>
-        {selectedGroup && (
+        {viewState === 'add' && (
+          <>
+            <ChevronRight size={12} className="breadcrumb-separator" />
+            <span className="breadcrumb-item active">Add Group</span>
+          </>
+        )}
+        {viewState === 'edit' && (
+          <>
+            <ChevronRight size={12} className="breadcrumb-separator" />
+            <span className="breadcrumb-item active">Edit Group</span>
+          </>
+        )}
+        {selectedGroup && viewState === 'detail' && (
           <>
             <ChevronRight size={12} className="breadcrumb-separator" />
             <span className="breadcrumb-item active">{selectedGroup.name}</span>
@@ -201,51 +215,57 @@ const Groups = () => {
       </div>
 
       {/* Page Header */}
-      <div className="page-header">
-        <div className="page-title-group">
-          <h1>{selectedGroup ? selectedGroup.name : 'Display Groups'}</h1>
-          <p>{selectedGroup ? selectedGroup.description : 'Group multiple TV screens together to push centrally controlled layout schedules.'}</p>
+      <div className="page-header" style={{ alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {viewState !== 'list' && (
+            <button 
+              onClick={() => setViewState('list')} 
+              className="btn btn-outline" 
+              style={{ height: '36px', width: '36px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
+              title="Back"
+            >
+              <ChevronLeft size={18} />
+            </button>
+          )}
+          <div className="page-title-group">
+            {viewState === 'list' && (
+              <>
+                <h1>Display Groups</h1>
+                <p>Group multiple TV screens together to push centrally controlled layout schedules.</p>
+              </>
+            )}
+            {viewState === 'add' && (
+              <>
+                <h1 style={{ margin: 0 }}>Create Display Group</h1>
+                <p style={{ margin: 0 }}>Map branch displays and assign central signage playlists.</p>
+              </>
+            )}
+            {viewState === 'edit' && (
+              <>
+                <h1 style={{ margin: 0 }}>Edit Display Group</h1>
+                <p style={{ margin: 0 }}>Re-configure group members and active layout schedules.</p>
+              </>
+            )}
+            {selectedGroup && viewState === 'detail' && (
+              <>
+                <h1 style={{ margin: 0 }}>{selectedGroup.name}</h1>
+                <p style={{ margin: 0 }}>{selectedGroup.description || 'Display network loop.'}</p>
+              </>
+            )}
+          </div>
         </div>
         
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {/* Dev Sim controls */}
-          <div style={{ 
-            display: 'flex', 
-            gap: '4px', 
-            padding: '4px', 
-            backgroundColor: '#f1f5f9', 
-            borderRadius: 'var(--radius-input)',
-            marginRight: '8px'
-          }}>
-            <button 
-              onClick={triggerSimulatedLoad}
-              className="btn btn-outline" 
-              style={{ height: '28px', padding: '0 8px', fontSize: '11px', border: 'none' }}
-            >
-              <RefreshCw size={12} />
-              <span>Simulate Load</span>
-            </button>
-            <button 
-              onClick={() => setIsError(!isError)}
-              className="btn btn-outline" 
-              style={{ 
-                height: '28px', 
-                padding: '0 8px', 
-                fontSize: '11px', 
-                border: 'none', 
-                backgroundColor: isError ? 'var(--color-error-light)' : 'transparent',
-                color: isError ? 'var(--color-error)' : 'var(--color-text-secondary)'
-              }}
-            >
-              <ServerCrash size={12} />
-              <span>Simulate Error</span>
-            </button>
-          </div>
 
           {!isError && (
-            selectedGroup ? (
+            viewState === 'list' ? (
+              <button className="btn btn-primary" onClick={handleOpenAdd}>
+                <Plus size={16} />
+                <span>Add Group</span>
+              </button>
+            ) : viewState === 'detail' ? (
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button className="btn btn-secondary" onClick={() => setSelectedGroupId(null)}>
+                <button className="btn btn-secondary" onClick={() => setViewState('list')}>
                   <ChevronLeft size={16} />
                   <span>Back to Groups</span>
                 </button>
@@ -255,10 +275,10 @@ const Groups = () => {
                 </button>
               </div>
             ) : (
-              <button className="btn btn-primary" onClick={handleOpenAdd}>
-                <Plus size={16} />
-                <span>Add Group</span>
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-secondary" onClick={() => setViewState('list')}>Cancel</button>
+                <button className="btn btn-primary" onClick={handleSaveGroup}>Save Display Group</button>
+              </div>
             )
           )}
         </div>
@@ -282,7 +302,7 @@ const Groups = () => {
           <div style={{ height: '44px', backgroundColor: '#ffffff', border: '1px solid var(--color-border)', borderRadius: '6px', width: '100%', animation: 'pulse 1.5s infinite', opacity: 0.8 }}></div>
           <div style={{ height: '44px', backgroundColor: '#ffffff', border: '1px solid var(--color-border)', borderRadius: '6px', width: '100%', animation: 'pulse 1.5s infinite', opacity: 0.6 }}></div>
         </div>
-      ) : !selectedGroup ? (
+      ) : viewState === 'list' ? (
         /* GROUPS LIST CATALOG */
         groups.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '56px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', maxWidth: '480px', margin: '32px auto' }}>
@@ -333,11 +353,11 @@ const Groups = () => {
               searchField="name"
               filters={activeFilters}
               keyField="id"
-              onRowClick={(group) => setSelectedGroupId(group.id)}
+              onRowClick={handleRowClick}
             />
           </>
         )
-      ) : (
+      ) : viewState === 'detail' && selectedGroup ? (
         /* DISPLAY GROUP DETAIL VIEW */
         <div>
           {/* Info Card Banner */}
@@ -420,123 +440,109 @@ const Groups = () => {
             </div>
           )}
         </div>
-      )}
+      ) : (
+        /* ADD / EDIT SUB-PAGE FORM */
+        <div className="card" style={{ maxWidth: '720px' }}>
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <label className="form-label">Display Group Name <span className="required">*</span></label>
+            <input 
+              type="text" 
+              value={formData.name} 
+              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))} 
+              className={`form-control ${errors.name ? 'error' : ''}`}
+              placeholder="e.g. Entrance Screen Network"
+            />
+            {errors.name && <span className="form-error">{errors.name}</span>}
+          </div>
 
-      {/* Add / Edit Group Modal */}
-      {formOpen && (
-        <div className="modal-overlay">
-          <div className="modal-container size-lg" style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-            <div className="modal-header">
-              <h3>{editTarget ? 'Edit Display Group' : 'Create Display Group'}</h3>
-              <button onClick={() => setFormOpen(false)} className="modal-close-btn">
-                <X size={16} />
-              </button>
+          <div className="form-group" style={{ marginBottom: '16px' }}>
+            <label className="form-label">Description</label>
+            <textarea 
+              value={formData.description} 
+              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))} 
+              className="form-control"
+              style={{ height: '70px', padding: '8px 12px', resize: 'vertical' }}
+              placeholder="Describe where these displays reside."
+            />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+            <div className="form-group">
+              <label className="form-label">Assigned Central Playlist</label>
+              <select 
+                value={formData.playlistId} 
+                onChange={(e) => setFormData(prev => ({ ...prev, playlistId: e.target.value }))}
+                className="form-control"
+              >
+                <option value="">None (Unassigned / Standby fallback)</option>
+                {playlists.filter(p => p.status === 'Active').map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
             </div>
-            <div className="modal-body" style={{ overflowY: 'auto', flex: 1, padding: '24px' }}>
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label">Display Group Name <span className="required">*</span></label>
-                <input 
-                  type="text" 
-                  value={formData.name} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))} 
-                  className={`form-control ${errors.name ? 'error' : ''}`}
-                  placeholder="e.g. Entrance Screen Network"
-                />
-                {errors.name && <span className="form-error">{errors.name}</span>}
-              </div>
 
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label">Description</label>
-                <textarea 
-                  value={formData.description} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))} 
-                  className="form-control"
-                  style={{ height: '70px', padding: '8px 12px', resize: 'vertical' }}
-                  placeholder="Describe where these displays reside."
-                />
-              </div>
-
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label">Assigned Central Playlist</label>
-                <select 
-                  value={formData.playlistId} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, playlistId: e.target.value }))}
-                  className="form-control"
-                >
-                  <option value="">None (Unassigned / Standby fallback)</option>
-                  {playlists.filter(p => p.status === 'Active').map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group" style={{ marginBottom: '24px' }}>
-                <label className="form-label">Status</label>
-                <select 
-                  value={formData.status} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                  className="form-control"
-                >
-                  <option value="Active">Active (Available for Signage)</option>
-                  <option value="Inactive">Inactive (Disabled)</option>
-                </select>
-              </div>
-
-              {/* TVs checklist mapping inside form */}
-              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
-                <h4 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '12px' }}>Map Registered TV Screens to Group</h4>
-                
-                {tvs.length === 0 ? (
-                  <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>No registered TVs found in catalog. Create devices first.</p>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {tvs.map(tv => {
-                      const tvBranch = branches.find(b => b.id === tv.branchId) || {};
-                      const isChecked = formData.associatedTvIds.includes(tv.id);
-                      return (
-                        <div 
-                          key={tv.id}
-                          onClick={() => handleToggleTvAssociation(tv.id)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            padding: '10px',
-                            border: '1px solid var(--color-border)',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            backgroundColor: isChecked ? '#f8fafc' : '#ffffff'
-                          }}
-                        >
-                          <input 
-                            type="checkbox" 
-                            checked={isChecked}
-                            onChange={() => {}} // handled by wrapper onClick
-                            style={{ marginRight: '12px', cursor: 'pointer' }}
-                          />
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 500, fontSize: '13px' }}>{tv.name}</div>
-                            <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
-                              TV ID: <strong>{tv.tvId}</strong> • Branch: {tvBranch.name || 'Unknown'}
-                            </div>
-                          </div>
-                          {tv.groupId && tv.groupId !== editTarget && (
-                            <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
-                              Currently in: {groups.find(g => g.id === tv.groupId)?.name}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-            </div>
-            <div className="modal-footer" style={{ borderTop: '1px solid var(--color-border)' }}>
-              <button onClick={() => setFormOpen(false)} className="btn btn-secondary">Cancel</button>
-              <button onClick={handleSaveGroup} className="btn btn-primary">Save Group</button>
+            <div className="form-group">
+              <label className="form-label">Status</label>
+              <select 
+                value={formData.status} 
+                onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                className="form-control"
+              >
+                <option value="Active">Active (Available for Signage)</option>
+                <option value="Inactive">Inactive (Disabled)</option>
+              </select>
             </div>
           </div>
+
+          {/* TVs checklist mapping inside form */}
+          <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px', marginBottom: '24px' }}>
+            <h4 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '12px' }}>Map Registered TV Screens to Group</h4>
+            
+            {tvs.length === 0 ? (
+              <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>No registered TVs found in catalog. Create devices first.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {tvs.map(tv => {
+                  const tvBranch = branches.find(b => b.id === tv.branchId) || {};
+                  const isChecked = formData.associatedTvIds.includes(tv.id);
+                  return (
+                    <div 
+                      key={tv.id}
+                      onClick={() => handleToggleTvAssociation(tv.id)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '10px',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        backgroundColor: isChecked ? '#f8fafc' : '#ffffff'
+                      }}
+                    >
+                      <input 
+                        type="checkbox" 
+                        checked={isChecked}
+                        onChange={() => {}} // handled by wrapper onClick
+                        style={{ marginRight: '12px', cursor: 'pointer' }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 500, fontSize: '13px' }}>{tv.name}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
+                          TV ID: <strong>{tv.tvId}</strong> • Branch: {tvBranch.name || 'Unknown'}
+                        </div>
+                      </div>
+                      {tv.groupId && tv.groupId !== formData.id && (
+                        <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                          Currently in: {groups.find(g => g.id === tv.groupId)?.name}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
         </div>
       )}
 
@@ -567,7 +573,7 @@ const Groups = () => {
         </div>
       )}
 
-      {/* Filters Modal */}
+      {/* Filters Modal Dialog */}
       {filterOpen && (
         <div className="modal-overlay">
           <div className="modal-container size-sm">

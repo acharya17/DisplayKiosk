@@ -45,7 +45,15 @@ const Banners = () => {
     mediaType: 'Image',
     mediaFileName: '',
     duration: 10,
-    status: 'Active'
+    status: 'Active',
+    enableSchedule: false,
+    startDate: new Date().toISOString().split('T')[0],
+    startTime: '00:00',
+    endDate: '',
+    endTime: '23:59',
+    timezone: 'Asia/Kolkata (IST)',
+    repeatOption: 'None',
+    tvPermission: true
   };
   const [formData, setFormData] = useState(initialForm);
   const [errors, setErrors] = useState({});
@@ -252,10 +260,17 @@ const Banners = () => {
       field: 'status', 
       header: 'Status', 
       sortable: true,
-      render: (val) => (
-        <span className={`badge badge-${val.toLowerCase()}`}>
-          {val}
-        </span>
+      render: (val, row) => (
+        <label className="switch-control" onClick={(e) => e.stopPropagation()}>
+          <input 
+            type="checkbox" 
+            checked={val === 'Active'} 
+            onChange={() => {
+              setBannerStatus(row.id, val === 'Active' ? 'Inactive' : 'Active');
+            }}
+          />
+          <span className="switch-slider"></span>
+        </label>
       )
     }
   ];
@@ -301,68 +316,47 @@ const Banners = () => {
       </div>
 
       {/* Page Header */}
-      <div className="page-header">
-        <div className="page-title-group">
-          {viewState === 'list' && (
-            <>
-              <h1>Banner Library</h1>
-              <p>Upload, preview, and configure timings for advertisement banner graphic loops.</p>
-            </>
+      <div className="page-header" style={{ alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {viewState !== 'list' && (
+            <button 
+              onClick={() => setViewState('list')} 
+              className="btn btn-outline" 
+              style={{ height: '36px', width: '36px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
+              title="Back"
+            >
+              <ChevronLeft size={18} />
+            </button>
           )}
-          {viewState === 'add' && (
-            <>
-              <h1>Add Banner</h1>
-              <p>Create a new promotional slideshow banner.</p>
-            </>
-          )}
-          {viewState === 'edit' && (
-            <>
-              <h1>Edit Banner</h1>
-              <p>Update configurations for your creative media banner.</p>
-            </>
-          )}
-          {viewState === 'detail' && currentSelectedBanner && (
-            <>
-              <h1>{currentSelectedBanner.name}</h1>
-              <p>View creative assets and active timing attributes.</p>
-            </>
-          )}
+          <div className="page-title-group">
+            {viewState === 'list' && (
+              <>
+                <h1>Banner Library</h1>
+                <p>Upload, preview, and configure timings for advertisement banner graphic loops.</p>
+              </>
+            )}
+            {viewState === 'add' && (
+              <>
+                <h1 style={{ margin: 0 }}>Add Banner</h1>
+                <p style={{ margin: 0 }}>Create a new promotional slideshow banner.</p>
+              </>
+            )}
+            {viewState === 'edit' && (
+              <>
+                <h1 style={{ margin: 0 }}>Edit Banner</h1>
+                <p style={{ margin: 0 }}>Update configurations for your creative media banner.</p>
+              </>
+            )}
+            {viewState === 'detail' && currentSelectedBanner && (
+              <>
+                <h1 style={{ margin: 0 }}>{currentSelectedBanner.name}</h1>
+                <p style={{ margin: 0 }}>View creative assets and active timing attributes.</p>
+              </>
+            )}
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {/* Dev Sim Console Controls */}
-          <div style={{ 
-            display: 'flex', 
-            gap: '4px', 
-            padding: '4px', 
-            backgroundColor: '#f1f5f9', 
-            borderRadius: 'var(--radius-input)',
-            marginRight: '8px'
-          }}>
-            <button 
-              onClick={triggerSimulatedLoad}
-              className="btn btn-outline" 
-              style={{ height: '28px', padding: '0 8px', fontSize: '11px', border: 'none' }}
-            >
-              <RefreshCw size={12} />
-              <span>Simulate Load</span>
-            </button>
-            <button 
-              onClick={() => setIsError(!isError)}
-              className="btn btn-outline" 
-              style={{ 
-                height: '28px', 
-                padding: '0 8px', 
-                fontSize: '11px', 
-                border: 'none', 
-                backgroundColor: isError ? 'var(--color-error-light)' : 'transparent',
-                color: isError ? 'var(--color-error)' : 'var(--color-text-secondary)'
-              }}
-            >
-              <ServerCrash size={12} />
-              <span>Simulate Error</span>
-            </button>
-          </div>
 
           {!isError && (
             viewState === 'list' ? (
@@ -388,9 +382,10 @@ const Banners = () => {
                 </button>
               </div>
             ) : (
-              <button className="btn btn-secondary" onClick={() => setViewState('list')}>
-                Cancel
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-secondary" onClick={() => setViewState('list')}>Cancel</button>
+                <button className="btn btn-primary" onClick={handleSaveBanner}>Save Banner</button>
+              </div>
             )
           )}
         </div>
@@ -471,22 +466,6 @@ const Banners = () => {
             </>
           )}
 
-          {/* Active Default content widget summary card */}
-          {defaultContent && (
-            <div className="card" style={{ marginTop: '24px', display: 'flex', gap: '20px', alignItems: 'center', backgroundColor: '#f8fafc' }}>
-              <div style={{ width: '120px', height: '70px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--color-border)', flexShrink: 0, backgroundColor: '#ffffff' }}>
-                <img src={defaultContent.mediaUrl} alt="fallback" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '10px', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>Default Loop Fallback</div>
-                <h4 style={{ fontSize: '14px', fontWeight: 600, marginTop: '2px' }}>{defaultContent.name}</h4>
-                <p style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>Displays continuously when there are no valid active playlist promotions available.</p>
-              </div>
-              <button className="btn btn-outline" onClick={() => { setDefaultFormData({ ...defaultContent }); setDefaultErrors({}); setDefaultUploadProgress('done'); setDefaultUploadError(''); setDefaultContentOpen(true); }}>
-                Replace Fallback
-              </button>
-            </div>
-          )}
         </>
       ) : viewState === 'detail' && currentSelectedBanner ? (
         /* DETAIL VIEW SUB-PAGE */
@@ -536,51 +515,209 @@ const Banners = () => {
         </div>
       ) : (
         /* ADD / EDIT SUB-PAGE FORM */
-        <div className="card" style={{ maxWidth: '720px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-            <div className="form-group">
-              <label className="form-label">Banner Name <span className="required">*</span></label>
-              <input 
-                type="text" 
-                value={formData.name} 
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="e.g. Diwali Fest Special"
-                className={`form-control ${errors.name ? 'error' : ''}`}
-              />
-              {errors.name && <span className="form-error">{errors.name}</span>}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '24px', alignItems: 'start' }}>
+          {/* Column 1: Config settings & Schedule */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div className="card" style={{ padding: '24px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px', borderBottom: '1px solid var(--color-border)', paddingBottom: '8px' }}>Banner Settings</h3>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div className="form-group">
+                  <label className="form-label">Banner Name <span className="required">*</span></label>
+                  <input 
+                    type="text" 
+                    value={formData.name} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g. Diwali Fest Special"
+                    className={`form-control ${errors.name ? 'error' : ''}`}
+                  />
+                  {errors.name && <span className="form-error">{errors.name}</span>}
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">
+                    Display Duration (Seconds) {formData.mediaType === 'Image' && <span className="required">*</span>}
+                  </label>
+                  <input 
+                    type="number" 
+                    value={formData.mediaType === 'Video' ? '' : formData.duration} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
+                    disabled={formData.mediaType === 'Video'}
+                    placeholder={formData.mediaType === 'Video' ? 'Auto-detected from video' : 'e.g. 10'}
+                    className={`form-control ${errors.duration ? 'error' : ''}`}
+                  />
+                  {formData.mediaType === 'Video' && (
+                    <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px', display: 'block' }}>
+                      Video loop duration matches video length automatically.
+                    </span>
+                  )}
+                  {errors.duration && <span className="form-error">{errors.duration}</span>}
+                </div>
+
+                {/* Toggles Pane */}
+                <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '6px', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Active Switch */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '12px' }}>Banner Status</div>
+                      <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                        {formData.status === 'Active' ? 'Active & available to loop' : 'Inactive / paused'}
+                      </div>
+                    </div>
+                    <label className="switch-control">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.status === 'Active'} 
+                        onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.checked ? 'Active' : 'Inactive' }))}
+                      />
+                      <span className="switch-slider"></span>
+                    </label>
+                  </div>
+
+                  {/* Permission Switch */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--color-border)', paddingTop: '12px' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '12px' }}>TV Signage Permission</div>
+                      <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                        Status: <strong style={{ color: formData.tvPermission ? 'var(--color-success)' : 'var(--color-error)' }}>
+                          {formData.tvPermission ? 'Granted' : 'Revoked'}
+                        </strong>
+                      </div>
+                    </div>
+                    <label className="switch-control">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.tvPermission} 
+                        onChange={(e) => setFormData(prev => ({ ...prev, tvPermission: e.target.checked }))}
+                      />
+                      <span className="switch-slider"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Banner Status</label>
-              <select 
-                value={formData.status} 
-                onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                className="form-control"
-              >
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-              </select>
+            {/* Scheduling Card */}
+            <div className="card" style={{ padding: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '13px' }}>Configure Signage Schedule</div>
+                  <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                    Define dates, time restrictions, and repeats constraints.
+                  </div>
+                </div>
+                <label className="switch-control">
+                  <input 
+                    type="checkbox" 
+                    checked={formData.enableSchedule} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, enableSchedule: e.target.checked }))}
+                  />
+                  <span className="switch-slider"></span>
+                </label>
+              </div>
+
+              {/* Collapsible schedule inputs */}
+              {formData.enableSchedule && (
+                <div style={{ 
+                  backgroundColor: '#f8fafc', 
+                  border: '1px solid var(--color-border)', 
+                  borderRadius: '6px', 
+                  padding: '16px', 
+                  display: 'grid', 
+                  gridTemplateColumns: '1fr 1fr', 
+                  gap: '16px',
+                  animation: 'fadeIn 0.2s ease-out'
+                }}>
+                  <div className="form-group">
+                    <label className="form-label">Start Date</label>
+                    <input 
+                      type="date" 
+                      value={formData.startDate} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
+                      className="form-control"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Start Time</label>
+                    <input 
+                      type="time" 
+                      value={formData.startTime} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
+                      className="form-control"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">End Date</label>
+                    <input 
+                      type="date" 
+                      value={formData.endDate} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
+                      className="form-control"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">End Time</label>
+                    <input 
+                      type="time" 
+                      value={formData.endTime} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
+                      className="form-control"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Repeat Pattern</label>
+                    <select 
+                      value={formData.repeatOption} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, repeatOption: e.target.value }))}
+                      className="form-control"
+                    >
+                      <option value="None">None (Once)</option>
+                      <option value="Daily">Daily loop repeat</option>
+                      <option value="Weekly">Weekly loops repeat</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Timezone</label>
+                    <select 
+                      value={formData.timezone} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, timezone: e.target.value }))}
+                      className="form-control"
+                    >
+                      <option value="Asia/Kolkata (IST)">Asia/Kolkata (IST)</option>
+                      <option value="Asia/Dubai (GST)">Asia/Dubai (GST)</option>
+                      <option value="UTC">UTC Greenwich</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
-            {/* Media Upload Dropzone */}
-            <div className="form-group">
-              <label className="form-label">Media Upload <span className="required">*</span></label>
+          {/* Column 2: Media Dropzone & Preview Card */}
+          <div className="card" style={{ padding: '24px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px', borderBottom: '1px solid var(--color-border)', paddingBottom: '8px' }}>Media Asset</h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Upload Zone container */}
               <div 
                 style={{ 
                   border: errors.mediaFile ? '1.5px dashed var(--color-error)' : '1.5px dashed var(--color-border)',
                   borderRadius: '6px',
-                  padding: '20px 12px',
+                  padding: '24px 12px',
                   textAlign: 'center',
                   backgroundColor: '#f8fafc',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '8px',
+                  gap: '12px',
                   cursor: 'pointer',
-                  minHeight: '140px'
+                  minHeight: '180px'
                 }}
                 onClick={() => {
                   if (uploadProgress !== 'done' && fileInputRef.current) {
@@ -595,18 +732,20 @@ const Banners = () => {
                   accept="image/*,video/*"
                   onChange={handleFileSelection}
                 />
-                
+
                 {uploadProgress === null && (
                   <>
-                    <Upload size={24} style={{ color: 'var(--color-text-secondary)' }} />
-                    <span style={{ fontSize: '12px', fontWeight: 500 }}>Choose image or video file</span>
-                    <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>Supported formats up to 15MB</span>
+                    <Upload size={28} style={{ color: 'var(--color-text-secondary)' }} />
+                    <div>
+                      <span style={{ fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '2px' }}>Choose image or video file</span>
+                      <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>Drag files here or click to browse (Max 15MB)</span>
+                    </div>
                   </>
                 )}
 
                 {typeof uploadProgress === 'number' && (
-                  <div style={{ width: '100%', padding: '0 8px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 600, marginBottom: '6px' }}>Uploading creative... {uploadProgress}%</div>
+                  <div style={{ width: '100%', padding: '0 16px' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>Uploading creative file... {uploadProgress}%</div>
                     <div style={{ height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${uploadProgress}%`, backgroundColor: 'var(--color-primary)', transition: 'width 100ms ease' }} />
                     </div>
@@ -616,22 +755,24 @@ const Banners = () => {
                 {uploadProgress === 'done' && (
                   <>
                     <CheckCircle size={24} style={{ color: 'var(--color-success)' }} />
-                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-success)' }}>File Uploaded Successfully</span>
-                    <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', wordBreak: 'break-all' }}>{formData.mediaFileName}</span>
+                    <div>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-success)', display: 'block' }}>Media upload ready</span>
+                      <span style={{ fontSize: '10px', color: 'var(--color-text-secondary)', wordBreak: 'break-all' }}>{formData.mediaFileName}</span>
+                    </div>
                     <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                       <button 
                         type="button"
                         onClick={(e) => { e.stopPropagation(); fileInputRef.current.click(); }} 
                         className="btn btn-outline" 
-                        style={{ height: '24px', fontSize: '10px', padding: '0 8px' }}
+                        style={{ height: '26px', fontSize: '10px', padding: '0 8px' }}
                       >
-                        Replace
+                        Replace File
                       </button>
                       <button 
                         type="button"
                         onClick={(e) => { e.stopPropagation(); handleRemoveUploadedFile(); }} 
                         className="btn btn-outline" 
-                        style={{ height: '24px', fontSize: '10px', padding: '0 8px', borderColor: 'var(--color-error)', color: 'var(--color-error)' }}
+                        style={{ height: '26px', fontSize: '10px', padding: '0 8px', borderColor: 'var(--color-error)', color: 'var(--color-error)' }}
                       >
                         Remove
                       </button>
@@ -639,50 +780,29 @@ const Banners = () => {
                   </>
                 )}
               </div>
-              {uploadError && <span style={{ color: 'var(--color-error)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{uploadError}</span>}
-              {errors.mediaFile && <span className="form-error">{errors.mediaFile}</span>}
-            </div>
 
-            {/* Display Duration (Disabled for Video) */}
-            <div className="form-group">
-              <label className="form-label">
-                Display Duration (Seconds) {formData.mediaType === 'Image' && <span className="required">*</span>}
-              </label>
-              <input 
-                type="number" 
-                value={formData.mediaType === 'Video' ? '' : formData.duration} 
-                onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
-                disabled={formData.mediaType === 'Video'}
-                placeholder={formData.mediaType === 'Video' ? 'Auto-detected from video length' : 'e.g. 10'}
-                className={`form-control ${errors.duration ? 'error' : ''}`}
-              />
-              {formData.mediaType === 'Video' && (
-                <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '4px', display: 'block' }}>
-                  Video loop duration matches creative playtime.
-                </span>
+              {/* Inline Media Preview Panel */}
+              {formData.mediaUrl && uploadProgress === 'done' && (
+                <div style={{ 
+                  border: '1px solid var(--color-border)', 
+                  borderRadius: '6px', 
+                  overflow: 'hidden', 
+                  backgroundColor: '#0f172a', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  height: '180px'
+                }}>
+                  {formData.mediaType === 'Video' ? (
+                    <video src={formData.mediaUrl} controls autoPlay muted style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  ) : (
+                    <img src={formData.mediaUrl} alt="prev" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  )}
+                </div>
               )}
-              {errors.duration && <span className="form-error">{errors.duration}</span>}
             </div>
-          </div>
-
-          {/* Upload Preview panel in the form */}
-          {formData.mediaUrl && uploadProgress === 'done' && (
-            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px', marginBottom: '24px' }}>
-              <label className="form-label" style={{ marginBottom: '8px' }}>Creative Asset Preview</label>
-              <div style={{ width: '100%', height: '200px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--color-border)', backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {formData.mediaType === 'Video' ? (
-                  <video src={formData.mediaUrl} controls autoPlay muted style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                ) : (
-                  <img src={formData.mediaUrl} alt="prev" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
-            <button className="btn btn-secondary" onClick={() => setViewState('list')}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleSaveBanner}>Save Banner</button>
+            {uploadError && <span style={{ color: 'var(--color-error)', fontSize: '11px', marginTop: '6px', display: 'block' }}>{uploadError}</span>}
+            {errors.mediaFile && <span className="form-error" style={{ marginTop: '6px' }}>{errors.mediaFile}</span>}
           </div>
         </div>
       )}

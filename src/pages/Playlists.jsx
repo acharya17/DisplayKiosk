@@ -291,10 +291,17 @@ const Playlists = () => {
       field: 'status', 
       header: 'Status', 
       sortable: true,
-      render: (val) => (
-        <span className={`badge badge-${val.toLowerCase()}`}>
-          {val}
-        </span>
+      render: (val, row) => (
+        <label className="switch-control" onClick={(e) => e.stopPropagation()}>
+          <input 
+            type="checkbox" 
+            checked={val === 'Active'} 
+            onChange={() => {
+              setPlaylistStatus(row.id, val === 'Active' ? 'Inactive' : 'Active');
+            }}
+          />
+          <span className="switch-slider"></span>
+        </label>
       )
     }
   ];
@@ -338,68 +345,47 @@ const Playlists = () => {
       </div>
 
       {/* Page Header */}
-      <div className="page-header">
-        <div className="page-title-group">
-          {viewState === 'list' && (
-            <>
-              <h1>Playlists</h1>
-              <p>Organize multiple creative banner assets into scheduled digital loops.</p>
-            </>
+      <div className="page-header" style={{ alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {viewState !== 'list' && (
+            <button 
+              onClick={() => setViewState('list')} 
+              className="btn btn-outline" 
+              style={{ height: '36px', width: '36px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
+              title="Back"
+            >
+              <ChevronLeft size={18} />
+            </button>
           )}
-          {viewState === 'add' && (
-            <>
-              <h1>Create Playlist</h1>
-              <p>Configure sequence layout loops.</p>
-            </>
-          )}
-          {viewState === 'edit' && (
-            <>
-              <h1>Edit Playlist</h1>
-              <p>Configure loops sequence order and schedules.</p>
-            </>
-          )}
-          {viewState === 'detail' && currentSelectedPlaylist && (
-            <>
-              <h1>{currentSelectedPlaylist.name}</h1>
-              <p>Inspect active display loops schedules and orders.</p>
-            </>
-          )}
+          <div className="page-title-group">
+            {viewState === 'list' && (
+              <>
+                <h1>Playlists</h1>
+                <p>Organize multiple creative banner assets into scheduled digital loops.</p>
+              </>
+            )}
+            {viewState === 'add' && (
+              <>
+                <h1 style={{ margin: 0 }}>Create Playlist</h1>
+                <p style={{ margin: 0 }}>Configure sequence layout loops.</p>
+              </>
+            )}
+            {viewState === 'edit' && (
+              <>
+                <h1 style={{ margin: 0 }}>Edit Playlist</h1>
+                <p style={{ margin: 0 }}>Configure loops sequence order and schedules.</p>
+              </>
+            )}
+            {viewState === 'detail' && currentSelectedPlaylist && (
+              <>
+                <h1 style={{ margin: 0 }}>{currentSelectedPlaylist.name}</h1>
+                <p style={{ margin: 0 }}>Inspect active display loops schedules and orders.</p>
+              </>
+            )}
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {/* Dev Sim Console Controls */}
-          <div style={{ 
-            display: 'flex', 
-            gap: '4px', 
-            padding: '4px', 
-            backgroundColor: '#f1f5f9', 
-            borderRadius: 'var(--radius-input)',
-            marginRight: '8px'
-          }}>
-            <button 
-              onClick={triggerSimulatedLoad}
-              className="btn btn-outline" 
-              style={{ height: '28px', padding: '0 8px', fontSize: '11px', border: 'none' }}
-            >
-              <RefreshCw size={12} />
-              <span>Simulate Load</span>
-            </button>
-            <button 
-              onClick={() => setIsError(!isError)}
-              className="btn btn-outline" 
-              style={{ 
-                height: '28px', 
-                padding: '0 8px', 
-                fontSize: '11px', 
-                border: 'none', 
-                backgroundColor: isError ? 'var(--color-error-light)' : 'transparent',
-                color: isError ? 'var(--color-error)' : 'var(--color-text-secondary)'
-              }}
-            >
-              <ServerCrash size={12} />
-              <span>Simulate Error</span>
-            </button>
-          </div>
 
           {!isError && (
             viewState === 'list' ? (
@@ -419,9 +405,10 @@ const Playlists = () => {
                 </button>
               </div>
             ) : (
-              <button className="btn btn-secondary" onClick={() => setViewState('list')}>
-                Cancel
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-secondary" onClick={() => setViewState('list')}>Cancel</button>
+                <button className="btn btn-primary" onClick={handleSavePlaylist}>Save Playlist</button>
+              </div>
             )
           )}
         </div>
@@ -587,164 +574,149 @@ const Playlists = () => {
         </div>
       ) : (
         /* ADD / EDIT SUB-PAGE FORM */
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '24px', alignItems: 'start' }}>
-          {/* Left Panel: Basic config & Banner sequence */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {/* Properties Card */}
-            <div className="card">
-              <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px' }}>Playlist Information</h3>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '16px' }}>
-                <div className="form-group">
-                  <label className="form-label">Playlist Name <span className="required">*</span></label>
-                  <input 
-                    type="text" 
-                    value={formData.name} 
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="e.g. Counter Signage Grid"
-                    className={`form-control ${errors.name ? 'error' : ''}`}
-                  />
-                  {errors.name && <span className="form-error">{errors.name}</span>}
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Playlist Status</label>
-                  <select 
-                    value={formData.status} 
-                    onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                    className="form-control"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </div>
-              </div>
-
+        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '24px', alignItems: 'start' }}>
+          {/* Properties Card (Left Panel) */}
+          <div className="card" style={{ padding: '24px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px', borderBottom: '1px solid var(--color-border)', paddingBottom: '8px' }}>Playlist Information</h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '16px' }}>
               <div className="form-group">
-                <label className="form-label">Description</label>
-                <textarea 
-                  value={formData.description} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Describe where this playlist is intended to show."
-                  className="form-control"
-                  style={{ height: '70px', padding: '8px 12px', resize: 'vertical' }}
+                <label className="form-label">Playlist Name <span className="required">*</span></label>
+                <input 
+                  type="text" 
+                  value={formData.name} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g. Counter Signage Grid"
+                  className={`form-control ${errors.name ? 'error' : ''}`}
                 />
+                {errors.name && <span className="form-error">{errors.name}</span>}
+              </div>
+
+              <div style={{ backgroundColor: '#f8fafc', padding: '12px 16px', borderRadius: '6px', border: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '12px' }}>Playlist Status</div>
+                  <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                    {formData.status === 'Active' ? 'Active & looping on TVs' : 'Inactive / paused'}
+                  </div>
+                </div>
+                <label className="switch-control">
+                  <input 
+                    type="checkbox" 
+                    checked={formData.status === 'Active'} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.checked ? 'Active' : 'Inactive' }))}
+                  />
+                  <span className="switch-slider"></span>
+                </label>
               </div>
             </div>
 
-            {/* Sequence Loop list inside form */}
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <h3 style={{ fontSize: '14px', fontWeight: 600 }}>Mapped Banners & Timing Loop</h3>
-                <button className="btn btn-outline" style={{ height: '32px' }} onClick={handleOpenBannerPicker}>
-                  <Plus size={14} />
-                  <span>Configure Banners</span>
-                </button>
-              </div>
-
-              {formData.banners.length === 0 ? (
-                <div style={{ padding: '36px 12px', textAlign: 'center', color: 'var(--color-text-secondary)', border: '1.5px dashed var(--color-border)', borderRadius: '6px' }}>
-                  <ImageIcon size={28} style={{ color: 'var(--color-text-muted)', marginBottom: '8px' }} />
-                  <div style={{ fontSize: '12px' }}>No banners selected inside this playlist loop.</div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {formData.banners.map((item, idx) => {
-                    const fullBanner = banners.find(b => b.id === item.bannerId);
-                    if (!fullBanner) return null;
-                    return (
-                      <div 
-                        key={item.bannerId}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '10px 12px',
-                          border: '1px solid var(--color-border)',
-                          borderRadius: '6px',
-                          backgroundColor: '#ffffff'
-                        }}
-                      >
-                        <GripVertical size={16} style={{ color: 'var(--color-text-muted)', marginRight: '8px', cursor: 'grab' }} />
-                        
-                        <div style={{ width: '48px', height: '28px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--color-border)', marginRight: '12px', backgroundColor: '#f1f5f9' }}>
-                          {fullBanner.mediaType === 'Video' ? (
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--color-primary)' }}>
-                              <Film size={12} />
-                            </div>
-                          ) : (
-                            <img src={fullBanner.mediaUrl} alt="prev" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          )}
-                        </div>
-
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 500, fontSize: '13px' }}>{fullBanner.name}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px' }}>
-                            <span>Order #{item.order}</span>
-                            <span>•</span>
-                            <span 
-                              style={{ color: 'var(--color-primary)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
-                              onClick={() => handleOpenScheduleEditor(item)}
-                            >
-                              <Clock size={10} />
-                              {item.scheduleType === 'Always' ? 'Always' : 'Scheduled time'}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Order sorting icons */}
-                        <div style={{ display: 'flex', gap: '4px', marginRight: '12px' }}>
-                          <button 
-                            type="button" 
-                            disabled={idx === 0} 
-                            onClick={() => moveBannerItem(idx, -1)} 
-                            className="btn btn-outline" 
-                            style={{ height: '26px', width: '26px', padding: 0, opacity: idx === 0 ? 0.3 : 1 }}
-                          >
-                            <ArrowUp size={12} />
-                          </button>
-                          <button 
-                            type="button" 
-                            disabled={idx === formData.banners.length - 1} 
-                            onClick={() => moveBannerItem(idx, 1)} 
-                            className="btn btn-outline" 
-                            style={{ height: '26px', width: '26px', padding: 0, opacity: idx === formData.banners.length - 1 ? 0.3 : 1 }}
-                          >
-                            <ArrowDown size={12} />
-                          </button>
-                        </div>
-
-                        {/* Remove item */}
-                        <button 
-                          type="button" 
-                          onClick={() => removeBannerFromForm(idx)}
-                          className="btn btn-outline" 
-                          style={{ height: '26px', width: '26px', padding: 0, borderColor: 'var(--color-error)' }}
-                        >
-                          <Trash2 size={12} style={{ color: 'var(--color-error)' }} />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Action buttons at bottom left */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button className="btn btn-secondary" onClick={() => setViewState('list')}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSavePlaylist}>Save Playlist</button>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Description</label>
+              <textarea 
+                value={formData.description} 
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Describe where this playlist is intended to show."
+                className="form-control"
+                style={{ height: '110px', padding: '8px 12px', resize: 'none' }}
+              />
             </div>
           </div>
 
-          {/* Right Panel: Side panel configuration help */}
-          <div className="card">
-            <h3 style={{ fontSize: '14px', fontWeight: 600, borderBottom: '1px solid var(--color-border)', paddingBottom: '8px', marginBottom: '12px' }}>Loops Scheduling Rules</h3>
-            <ul style={{ fontSize: '12px', color: 'var(--color-text-secondary)', display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '16px' }}>
-              <li>Banners in the playlist are played in ascending order.</li>
-              <li>When the loop completes, it automatically restarts from banner #1.</li>
-              <li>Configure individual banner scheduling to specify exact start/end dates.</li>
-              <li>Inactive banners or expired configurations will be skipped automatically during playback.</li>
-            </ul>
+          {/* Sequence Loop list inside form (Right Panel) */}
+          <div className="card" style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 600 }}>Mapped Banners & Timing Loop</h3>
+              <button className="btn btn-outline" style={{ height: '32px' }} onClick={handleOpenBannerPicker}>
+                <Plus size={14} />
+                <span>Configure Banners</span>
+              </button>
+            </div>
+
+            {formData.banners.length === 0 ? (
+              <div style={{ padding: '36px 12px', textAlign: 'center', color: 'var(--color-text-secondary)', border: '1.5px dashed var(--color-border)', borderRadius: '6px' }}>
+                <ImageIcon size={28} style={{ color: 'var(--color-text-muted)', marginBottom: '8px' }} />
+                <div style={{ fontSize: '12px' }}>No banners selected inside this playlist loop.</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {formData.banners.map((item, idx) => {
+                  const fullBanner = banners.find(b => b.id === item.bannerId);
+                  if (!fullBanner) return null;
+                  return (
+                    <div 
+                      key={item.bannerId}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '10px 12px',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: '6px',
+                        backgroundColor: '#ffffff'
+                      }}
+                    >
+                      <GripVertical size={16} style={{ color: 'var(--color-text-muted)', marginRight: '8px', cursor: 'grab' }} />
+                      
+                      <div style={{ width: '48px', height: '28px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--color-border)', marginRight: '12px', backgroundColor: '#f1f5f9' }}>
+                        {fullBanner.mediaType === 'Video' ? (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--color-primary)' }}>
+                            <Film size={12} />
+                          </div>
+                        ) : (
+                          <img src={fullBanner.mediaUrl} alt="prev" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        )}
+                      </div>
+
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 500, fontSize: '13px' }}>{fullBanner.name}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px' }}>
+                          <span>Order #{item.order}</span>
+                          <span>•</span>
+                          <span 
+                            style={{ color: 'var(--color-primary)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
+                            onClick={() => handleOpenScheduleEditor(item)}
+                          >
+                            <Clock size={10} />
+                            {item.scheduleType === 'Always' ? 'Always' : 'Scheduled time'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Order sorting icons */}
+                      <div style={{ display: 'flex', gap: '4px', marginRight: '12px' }}>
+                        <button 
+                          type="button" 
+                          disabled={idx === 0} 
+                          onClick={() => moveBannerItem(idx, -1)} 
+                          className="btn btn-outline" 
+                          style={{ height: '26px', width: '26px', padding: 0, opacity: idx === 0 ? 0.3 : 1 }}
+                        >
+                          <ArrowUp size={12} />
+                        </button>
+                        <button 
+                          type="button" 
+                          disabled={idx === formData.banners.length - 1} 
+                          onClick={() => moveBannerItem(idx, 1)} 
+                          className="btn btn-outline" 
+                          style={{ height: '26px', width: '26px', padding: 0, opacity: idx === formData.banners.length - 1 ? 0.3 : 1 }}
+                        >
+                          <ArrowDown size={12} />
+                        </button>
+                      </div>
+
+                      {/* Remove item */}
+                      <button 
+                        type="button" 
+                        onClick={() => removeBannerFromForm(idx)}
+                        className="btn btn-outline" 
+                        style={{ height: '26px', width: '26px', padding: 0, borderColor: 'var(--color-error)' }}
+                      >
+                        <Trash2 size={12} style={{ color: 'var(--color-error)' }} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}

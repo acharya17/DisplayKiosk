@@ -533,6 +533,57 @@ a {
   opacity: 1;
 }
 
+/* Custom Switch Toggle Styles */
+.switch-control {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 22px;
+}
+
+.switch-control input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cbd5e1;
+  transition: .2s;
+  border-radius: 22px;
+}
+
+.switch-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .2s;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+input:checked + .switch-slider {
+  background-color: var(--color-primary);
+}
+
+input:focus + .switch-slider {
+  box-shadow: 0 0 1px var(--color-primary);
+}
+
+input:checked + .switch-slider:before {
+  transform: translateX(22px);
+}
+
 /* Responsive Overrides */
 @media (max-width: 1024px) {
   .admin-layout {

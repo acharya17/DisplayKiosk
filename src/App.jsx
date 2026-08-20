@@ -10,6 +10,7 @@ import Banners from './pages/Banners';
 import Playlists from './pages/Playlists';
 import Devices from './pages/Devices';
 import Groups from './pages/Groups';
+import TvPlayer from './pages/TvPlayer';
 import PlaceholderPage from './pages/PlaceholderPage';
 
 // Import CSS Styles
@@ -43,6 +44,7 @@ function App() {
           </Route>
           
           {/* Global Fallback */}
+          <Route path="/player/:tvId" element={<TvPlayer />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </Router>

@@ -16,11 +16,11 @@ const Devices = () => {
     addTV, 
     editTV, 
     deleteTV, 
-    setTVStatus,
-    showToast
+    setTVStatus
   } = useApp();
 
-  // Navigation State (Detail Workspace)
+  // Layout View States
+  const [viewState, setViewState] = useState('list'); // 'list' | 'add' | 'edit' | 'detail'
   const [selectedTVId, setSelectedTVId] = useState(null);
 
   // Search & Filter State
@@ -33,18 +33,16 @@ const Devices = () => {
   const [isError, setIsError] = useState(false);
 
   // Modals Open States
-  const [formOpen, setFormOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState(null);
   const [confirmDeleteTarget, setConfirmDeleteTarget] = useState(null);
 
-  // TV Register Form State
+  // Form State
   const initialTVForm = {
     name: '',
     tvId: '',
     branchId: '',
     groupId: '',
-    playlistId: '',
-    status: 'Inactive'
+    playlistId: '', // Optional priority override
+    status: 'Active'
   };
   const [formData, setFormData] = useState(initialTVForm);
   const [errors, setErrors] = useState({});
@@ -64,30 +62,44 @@ const Devices = () => {
   };
 
   const handleOpenAdd = () => {
-    setEditTarget(null);
     setFormData(initialTVForm);
     setErrors({});
-    setFormOpen(true);
+    setViewState('add');
   };
 
   const handleOpenEdit = (tv) => {
-    setEditTarget(tv.id);
     setFormData({ ...tv });
     setErrors({});
-    setFormOpen(true);
+    setViewState('edit');
+  };
+
+  const handleRowClick = (tv) => {
+    setSelectedTVId(tv.id);
+    setViewState('detail');
   };
 
   const validateTV = () => {
     const tempErrors = {};
-    if (!formData.name?.trim()) tempErrors.name = 'TV Name is required';
-    if (!formData.tvId?.trim()) tempErrors.tvId = 'TV ID is required';
-    if (!formData.branchId) tempErrors.branchId = 'Branch assignment is required';
+    if (!formData.name?.trim()) tempErrors.name = 'TV Display Name is required';
     
-    // Inactive branches should not receive new TV assignments
-    if (formData.branchId) {
-      const selectedBranch = branches.find(b => b.id === formData.branchId);
-      if (selectedBranch && selectedBranch.status === 'Inactive') {
-        tempErrors.branchId = 'Selected Branch is inactive. Cannot assign TV to inactive branch.';
+    // Rule 2: TV ID must be unique
+    if (!formData.tvId?.trim()) {
+      tempErrors.tvId = 'TV Identifier Code is required';
+    } else {
+      const match = tvs.find(t => t.tvId.toLowerCase() === formData.tvId.trim().toLowerCase());
+      if (match && match.id !== formData.id) {
+        tempErrors.tvId = 'TV ID code must be unique (already registered)';
+      }
+    }
+
+    // Rule 4: Every TV must belong to a branch
+    if (!formData.branchId) {
+      tempErrors.branchId = 'Branch allocation is required';
+    } else {
+      // Rule 4 constraint: Inactive branches should not receive new TV assignments
+      const targetBranch = branches.find(b => b.id === formData.branchId);
+      if (targetBranch && targetBranch.status === 'Inactive' && viewState !== 'edit') {
+        tempErrors.branchId = 'TVs cannot be allocated to inactive branch networks';
       }
     }
 
@@ -98,100 +110,90 @@ const Devices = () => {
   const handleSaveTV = () => {
     if (!validateTV()) return;
 
-    if (editTarget) {
-      const success = editTV(editTarget, formData);
-      if (success) setFormOpen(false);
+    if (viewState === 'edit') {
+      const success = editTV(formData.id, formData);
+      if (success) setViewState('list');
     } else {
       const success = addTV(formData);
-      if (success) setFormOpen(false);
+      if (success) setViewState('list');
     }
   };
 
   const handleDeleteConfirm = () => {
     if (confirmDeleteTarget) {
       deleteTV(confirmDeleteTarget.id);
-      if (selectedTVId === confirmDeleteTarget.id) {
-        setSelectedTVId(null);
-      }
       setConfirmDeleteTarget(null);
+      if (selectedTVId === confirmDeleteTarget.id) {
+        setViewState('list');
+      }
     }
   };
 
-  const selectedTV = tvs.find(t => t.id === selectedTVId);
-
-  // Helper to determine playlist assignment details (Rule 11 priority resolution)
+  // Rule 11 Calculation: Priority Playlist Assignment Resolution
   const getPlaylistAssignment = (tvRecord) => {
-    if (!tvRecord) return { playlistName: 'Unassigned', type: 'None', playlistId: '' };
-
-    // Highest Priority: Individual TV Assignment
+    // Priority 1: Individual Override
     if (tvRecord.playlistId) {
       const pl = playlists.find(p => p.id === tvRecord.playlistId);
-      return { 
-        playlistName: pl ? pl.name : 'Unknown Playlist', 
-        type: 'Individual Override', 
-        playlistId: tvRecord.playlistId 
+      return {
+        type: 'Individual Override',
+        playlistName: pl ? pl.name : 'Unresolved Playlist',
+        playlistId: tvRecord.playlistId
       };
     }
 
-    // Lower Priority: Display Group Assignment
+    // Priority 2: Inherited from Display Group
     if (tvRecord.groupId) {
-      const groupRecord = groups.find(g => g.id === tvRecord.groupId);
-      if (groupRecord && groupRecord.playlistId) {
-        const pl = playlists.find(p => p.id === groupRecord.playlistId);
-        return { 
-          playlistName: pl ? pl.name : 'Unknown Playlist', 
-          type: 'Inherited from Group', 
-          playlistId: groupRecord.playlistId 
+      const gp = groups.find(g => g.id === tvRecord.groupId);
+      if (gp && gp.playlistId) {
+        const pl = playlists.find(p => p.id === gp.playlistId);
+        return {
+          type: 'Inherited from Group',
+          playlistName: pl ? pl.name : 'Unresolved Playlist',
+          playlistId: gp.playlistId,
+          groupName: gp.name
         };
       }
     }
 
-    return { playlistName: 'Unassigned', type: 'None', playlistId: '' };
+    return {
+      type: 'None',
+      playlistName: 'None (Standby fallback)',
+      playlistId: ''
+    };
   };
 
   const getConnectionBadgeClass = (status) => {
     switch (status) {
-      case 'Online':
-        return 'badge-active';
-      case 'Offline':
-        return 'badge-inactive';
-      default:
-        return 'badge-upcoming';
+      case 'Online': return 'badge-active';
+      case 'Offline': return 'badge-inactive';
+      default: return 'badge-inactive';
     }
   };
 
-  // Columns for main grid table
+  // Columns for datatable list view
   const columns = [
     { field: 'tvId', header: 'TV ID', sortable: true },
-    { field: 'name', header: 'Device Name', sortable: true },
+    { field: 'name', header: 'TV Name', sortable: true },
     { 
       field: 'branchId', 
-      header: 'Branch', 
+      header: 'Branch Location',
       sortable: true,
-      render: (val) => {
-        const b = branches.find(item => item.id === val);
-        return b ? b.name : 'Unknown';
-      }
+      render: (val) => branches.find(b => b.id === val)?.name || 'Unknown'
     },
     { 
       field: 'groupId', 
-      header: 'Display Group', 
-      render: (val) => {
-        const g = groups.find(item => item.id === val);
-        return g ? g.name : <span style={{ color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>None</span>;
-      }
+      header: 'Display Group',
+      render: (val) => groups.find(g => g.id === val)?.name || <span style={{ color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>None</span>
     },
     { 
-      field: 'id', 
-      header: 'Playlist Assignment', 
-      render: (val, row) => {
-        const assign = getPlaylistAssignment(row);
+      field: 'playlistId', 
+      header: 'Playlist Config',
+      render: (_, row) => {
+        const resolution = getPlaylistAssignment(row);
         return (
-          <div>
-            <div style={{ fontWeight: assign.type !== 'None' ? 500 : 400 }}>{assign.playlistName}</div>
-            {assign.type !== 'None' && (
-              <div style={{ fontSize: '10px', color: 'var(--color-text-secondary)' }}>{assign.type}</div>
-            )}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontWeight: 500 }}>{resolution.playlistName}</span>
+            <span style={{ fontSize: '10px', color: 'var(--color-text-secondary)' }}>{resolution.type}</span>
           </div>
         );
       }
@@ -210,10 +212,17 @@ const Devices = () => {
       field: 'status', 
       header: 'Status', 
       sortable: true,
-      render: (val) => (
-        <span className={`badge badge-${val.toLowerCase()}`}>
-          {val}
-        </span>
+      render: (val, row) => (
+        <label className="switch-control" onClick={(e) => e.stopPropagation()}>
+          <input 
+            type="checkbox" 
+            checked={val === 'Active'} 
+            onChange={() => {
+              setTVStatus(row.id, val === 'Active' ? 'Inactive' : 'Active');
+            }}
+          />
+          <span className="switch-slider"></span>
+        </label>
       )
     }
   ];
@@ -221,7 +230,6 @@ const Devices = () => {
   // Filters calculation
   const filteredTVs = tvs.filter(tv => {
     const branch = branches.find(b => b.id === tv.branchId) || {};
-    const group = groups.find(g => g.id === tv.groupId) || {};
     
     // Search
     const searchLower = searchQuery.toLowerCase();
@@ -250,6 +258,8 @@ const Devices = () => {
   });
 
   const activeFiltersCount = Object.values(activeFilters).filter(Boolean).length;
+  const selectedTV = tvs.find(t => t.id === selectedTVId);
+  const resolvedPlaylist = selectedTV ? getPlaylistAssignment(selectedTV) : null;
 
   return (
     <div>
@@ -257,10 +267,22 @@ const Devices = () => {
       <div className="breadcrumb">
         <span>TV Display</span>
         <ChevronRight size={12} className="breadcrumb-separator" />
-        <span className="breadcrumb-item active" style={{ cursor: selectedTVId ? 'pointer' : 'default' }} onClick={() => setSelectedTVId(null)}>
+        <span className="breadcrumb-item active" style={{ cursor: viewState !== 'list' ? 'pointer' : 'default' }} onClick={() => setViewState('list')}>
           TVs / Devices
         </span>
-        {selectedTV && (
+        {viewState === 'add' && (
+          <>
+            <ChevronRight size={12} className="breadcrumb-separator" />
+            <span className="breadcrumb-item active">Add TV</span>
+          </>
+        )}
+        {viewState === 'edit' && (
+          <>
+            <ChevronRight size={12} className="breadcrumb-separator" />
+            <span className="breadcrumb-item active">Edit TV</span>
+          </>
+        )}
+        {viewState === 'detail' && selectedTV && (
           <>
             <ChevronRight size={12} className="breadcrumb-separator" />
             <span className="breadcrumb-item active">{selectedTV.tvId}</span>
@@ -269,64 +291,78 @@ const Devices = () => {
       </div>
 
       {/* Page Header */}
-      <div className="page-header">
-        <div className="page-title-group">
-          <h1>{selectedTV ? selectedTV.name : 'TVs & Displays'}</h1>
-          <p>{selectedTV ? `Device Identity: ${selectedTV.tvId}` : 'Register physical displays, group screens, and centrally push playlist schedules.'}</p>
+      <div className="page-header" style={{ alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {viewState !== 'list' && (
+            <button 
+              onClick={() => setViewState('list')} 
+              className="btn btn-outline" 
+              style={{ height: '36px', width: '36px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
+              title="Back"
+            >
+              <ChevronLeft size={18} />
+            </button>
+          )}
+          <div className="page-title-group">
+            {viewState === 'list' && (
+              <>
+                <h1>TVs & Displays</h1>
+                <p>Register physical displays, group screens, and centrally push playlist schedules.</p>
+              </>
+            )}
+            {viewState === 'add' && (
+              <>
+                <h1 style={{ margin: 0 }}>Add TV</h1>
+                <p style={{ margin: 0 }}>Register a new physical TV display screen.</p>
+              </>
+            )}
+            {viewState === 'edit' && (
+              <>
+                <h1 style={{ margin: 0 }}>Edit TV Settings</h1>
+                <p style={{ margin: 0 }}>Configure hardware variables and layout overrides.</p>
+              </>
+            )}
+            {viewState === 'detail' && selectedTV && (
+              <>
+                <h1 style={{ margin: 0 }}>{selectedTV.name}</h1>
+                <p style={{ margin: 0 }}>Physical Display Panel Code: {selectedTV.tvId}</p>
+              </>
+            )}
+          </div>
         </div>
         
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {/* Dev Sim controls */}
-          <div style={{ 
-            display: 'flex', 
-            gap: '4px', 
-            padding: '4px', 
-            backgroundColor: '#f1f5f9', 
-            borderRadius: 'var(--radius-input)',
-            marginRight: '8px'
-          }}>
-            <button 
-              onClick={triggerSimulatedLoad}
-              className="btn btn-outline" 
-              style={{ height: '28px', padding: '0 8px', fontSize: '11px', border: 'none' }}
-            >
-              <RefreshCw size={12} />
-              <span>Simulate Load</span>
-            </button>
-            <button 
-              onClick={() => setIsError(!isError)}
-              className="btn btn-outline" 
-              style={{ 
-                height: '28px', 
-                padding: '0 8px', 
-                fontSize: '11px', 
-                border: 'none', 
-                backgroundColor: isError ? 'var(--color-error-light)' : 'transparent',
-                color: isError ? 'var(--color-error)' : 'var(--color-text-secondary)'
-              }}
-            >
-              <ServerCrash size={12} />
-              <span>Simulate Error</span>
-            </button>
-          </div>
 
           {!isError && (
-            selectedTV ? (
+            viewState === 'list' ? (
+              <button className="btn btn-primary" onClick={handleOpenAdd}>
+                <Plus size={16} />
+                <span>Add TV</span>
+              </button>
+            ) : viewState === 'detail' ? (
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button className="btn btn-secondary" onClick={() => setSelectedTVId(null)}>
+                <button className="btn btn-secondary" onClick={() => setViewState('list')}>
                   <ChevronLeft size={16} />
-                  <span>Back to Device List</span>
+                  <span>Back to TVs</span>
+                </button>
+                <button 
+                  className="btn btn-outline" 
+                  onClick={() => window.open(`#/player/${selectedTV.tvId}`, '_blank')}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Play size={14} />
+                  <span>Launch Player</span>
                 </button>
                 <button className="btn btn-primary" onClick={() => handleOpenEdit(selectedTV)}>
                   <Edit2 size={15} />
-                  <span>Edit Config</span>
+                  <span>Edit TV</span>
                 </button>
               </div>
             ) : (
-              <button className="btn btn-primary" onClick={handleOpenAdd}>
-                <Plus size={16} />
-                <span>Register TV</span>
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-secondary" onClick={() => setViewState('list')}>Cancel</button>
+                <button className="btn btn-primary" onClick={handleSaveTV}>Save TV Screen</button>
+              </div>
             )
           )}
         </div>
@@ -336,9 +372,9 @@ const Devices = () => {
       {isError ? (
         <div className="card" style={{ textAlign: 'center', padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', border: '1px solid var(--color-error)', maxWidth: '480px', margin: '24px auto' }}>
           <AlertTriangle size={36} style={{ color: 'var(--color-error)' }} />
-          <h3>Unable to fetch device registry</h3>
+          <h3>Unable to fetch registered screens</h3>
           <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px' }}>
-            We encountered a network timeout connection error.
+            We encountered a network sync failure.
           </p>
           <button className="btn btn-primary" onClick={() => { setIsError(false); triggerSimulatedLoad(); }}>
             Try Again
@@ -350,14 +386,14 @@ const Devices = () => {
           <div style={{ height: '44px', backgroundColor: '#ffffff', border: '1px solid var(--color-border)', borderRadius: '6px', width: '100%', animation: 'pulse 1.5s infinite', opacity: 0.8 }}></div>
           <div style={{ height: '44px', backgroundColor: '#ffffff', border: '1px solid var(--color-border)', borderRadius: '6px', width: '100%', animation: 'pulse 1.5s infinite', opacity: 0.6 }}></div>
         </div>
-      ) : !selectedTV ? (
-        /* DEVICE LIST VIEW */
+      ) : viewState === 'list' ? (
+        /* LISTING VIEW */
         tvs.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '56px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', maxWidth: '480px', margin: '32px auto' }}>
             <Tv size={36} style={{ color: 'var(--color-text-muted)' }} />
-            <h3>No TVs registered yet</h3>
+            <h3>No display hardware registered</h3>
             <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', maxWidth: '340px' }}>
-              Register physical display media hardware with branch locations to configure digital signage play systems.
+              Register physical TVs deployed across your branch network locations to push playlists.
             </p>
             <button className="btn btn-primary" onClick={handleOpenAdd}>
               <Plus size={16} />
@@ -373,7 +409,7 @@ const Devices = () => {
                   <Search size={15} style={{ position: 'absolute', left: '12px', color: 'var(--color-text-muted)', opacity: 0.6 }} />
                   <input 
                     type="text" 
-                    placeholder="Search by TV Name, ID, or Branch..." 
+                    placeholder="Search by TV ID, Name, or Branch..." 
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="form-control"
@@ -401,209 +437,168 @@ const Devices = () => {
               searchField="name"
               filters={activeFilters}
               keyField="id"
-              onRowClick={(tv) => setSelectedTVId(tv.id)}
+              onRowClick={handleRowClick}
             />
           </>
         )
-      ) : (
-        /* DEVICE DETAIL VIEW WORKSPACE */
+      ) : viewState === 'detail' && selectedTV ? (
+        /* DETAIL VIEW SUB-PAGE */
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '24px', alignItems: 'start' }}>
-          
-          {/* Card 1: Configuration Detail */}
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div>
-              <h3 style={{ fontSize: '15px', fontWeight: 600, borderBottom: '1px solid var(--color-border)', paddingBottom: '8px', marginBottom: '12px' }}>
-                Display Details
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 8px' }}>
-                <div>
-                  <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>TV Name</div>
-                  <div style={{ fontWeight: 500, fontSize: '13px' }}>{selectedTV.name}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>TV Unique ID</div>
-                  <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--color-primary)' }}>{selectedTV.tvId}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Assigned Branch</div>
-                  <div style={{ fontWeight: 500, fontSize: '13px' }}>
-                    {branches.find(b => b.id === selectedTV.branchId)?.name || 'Unknown Branch'}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Display Status</div>
-                  <div>
-                    <span className={`badge badge-${selectedTV.status.toLowerCase()}`}>
-                      {selectedTV.status}
-                    </span>
-                  </div>
-                </div>
+          {/* Left panel: Connection telemetry */}
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 600 }}>Active Screen Telemetry</h3>
+            
+            <div style={{ display: 'flex', gap: '20px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Status Badge</span>
+                <span className={`badge badge-${selectedTV.status.toLowerCase()}`}>{selectedTV.status}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Connection Pulse</span>
+                <span className={`badge ${selectedTV.connectionStatus === 'Online' ? 'badge-active' : 'badge-inactive'}`}>
+                  {selectedTV.connectionStatus}
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Last Heartbeat</span>
+                <span style={{ fontSize: '13px', fontWeight: 600 }}>{new Date(selectedTV.lastSeen).toLocaleTimeString()}</span>
               </div>
             </div>
 
-            {/* Playback Assignment Status info */}
-            <div>
-              <h3 style={{ fontSize: '15px', fontWeight: 600, borderBottom: '1px solid var(--color-border)', paddingBottom: '8px', marginBottom: '12px' }}>
-                Active Playlist Assignment
-              </h3>
-              {(() => {
-                const assign = getPlaylistAssignment(selectedTV);
-                return (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {assign.type === 'None' ? (
-                      <div style={{ padding: '16px', border: '1px dashed var(--color-border)', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#f8fafc' }}>
-                        <AlertCircle size={18} style={{ color: 'var(--color-text-secondary)' }} />
-                        <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>No playlist has been assigned to this TV.</span>
-                      </div>
-                    ) : (
-                      <div style={{ padding: '12px', border: '1px solid var(--color-border)', borderRadius: '6px', backgroundColor: '#f8fafc' }}>
-                        <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Assigned Target</div>
-                        <div style={{ fontSize: '14px', fontWeight: 600, marginTop: '2px' }}>{assign.playlistName}</div>
-                        <div style={{ marginTop: '8px', fontSize: '11px', display: 'flex', gap: '16px' }}>
-                          <div>
-                            <span style={{ color: 'var(--color-text-secondary)' }}>Source Type:</span> <strong>{assign.type}</strong>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
+            <div style={{ marginTop: '8px' }}>
+              <h4 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>Calculated Playlist Priority Resolution</h4>
+              <div style={{ padding: '12px', border: '1px solid var(--color-border)', borderRadius: '6px', backgroundColor: '#f8fafc' }}>
+                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Priority Mode</div>
+                <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--color-primary)', marginTop: '2px' }}>{resolvedPlaylist.type}</div>
+                
+                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '8px' }}>Active Loop Output</div>
+                <div style={{ fontWeight: 500, fontSize: '13px', marginTop: '2px' }}>{resolvedPlaylist.playlistName}</div>
+              </div>
             </div>
           </div>
 
-          {/* Card 2: Network Health Status */}
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: 600, borderBottom: '1px solid var(--color-border)', paddingBottom: '8px' }}>
-              Connection Health Monitor
-            </h3>
-            
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ 
-                width: '40px', 
-                height: '40px', 
-                borderRadius: '50%', 
-                backgroundColor: selectedTV.connectionStatus === 'Online' ? '#dcfce7' : '#fee2e2',
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                color: selectedTV.connectionStatus === 'Online' ? 'var(--color-success)' : 'var(--color-error)'
-              }}>
-                <Power size={20} />
+          {/* Right panel: Attributes grid */}
+          <div className="card">
+            <h3 style={{ fontSize: '14px', fontWeight: 600, borderBottom: '1px solid var(--color-border)', paddingBottom: '8px', marginBottom: '12px' }}>Device Properties</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '14px' }}>
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>TV Display Name</div>
+                <div style={{ fontWeight: 500, fontSize: '13px' }}>{selectedTV.name}</div>
               </div>
               <div>
-                <div style={{ fontSize: '14px', fontWeight: 600 }}>{selectedTV.connectionStatus}</div>
-                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                  <Clock size={10} />
-                  <span>Last Seen: {new Date(selectedTV.lastSeen).toLocaleString()}</span>
+                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>TV ID Code</div>
+                <div style={{ fontWeight: 500, fontSize: '13px' }}>{selectedTV.tvId}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Allocated Branch</div>
+                <div style={{ fontWeight: 500, fontSize: '13px' }}>
+                  {branches.find(b => b.id === selectedTV.branchId)?.name || 'Unresolved branch'}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Display Network Group</div>
+                <div style={{ fontWeight: 500, fontSize: '13px' }}>
+                  {groups.find(g => g.id === selectedTV.groupId)?.name || 'None (Isolated Screen)'}
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      ) : (
+        /* ADD / EDIT SUB-PAGE FORM */
+        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '24px', alignItems: 'start' }}>
+          {/* Card 1: TV Settings (Left Panel) */}
+          <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, borderBottom: '1px solid var(--color-border)', paddingBottom: '8px' }}>TV Screen Settings</h3>
+            
+            <div className="form-group">
+              <label className="form-label">TV Display Name <span className="required">*</span></label>
+              <input 
+                type="text" 
+                value={formData.name} 
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g. Udupi Cashier Screen"
+                className={`form-control ${errors.name ? 'error' : ''}`}
+              />
+              {errors.name && <span className="form-error">{errors.name}</span>}
+            </div>
 
-            <div style={{ marginTop: '8px', padding: '12px', borderRadius: '6px', border: '1px solid var(--color-border)', fontSize: '11px', color: 'var(--color-text-secondary)', display: 'flex', gap: '6px' }}>
-              <HelpCircle size={14} style={{ flexShrink: 0, marginTop: '1px' }} />
-              <span>Real-time display heartbeat and sync protocols will be linked in downstream phases.</span>
+            <div className="form-group">
+              <label className="form-label">TV ID Code (Unique Identifier) <span className="required">*</span></label>
+              <input 
+                type="text" 
+                value={formData.tvId} 
+                onChange={(e) => setFormData(prev => ({ ...prev, tvId: e.target.value }))}
+                placeholder="e.g. TV-UDUPI-02"
+                className={`form-control ${errors.tvId ? 'error' : ''}`}
+              />
+              {errors.tvId && <span className="form-error">{errors.tvId}</span>}
+            </div>
+
+            {/* Status switch toggle */}
+            <div style={{ backgroundColor: '#f8fafc', padding: '12px 16px', borderRadius: '6px', border: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: '12px' }}>Device Status</div>
+                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
+                  {formData.status === 'Active' ? 'Active & loops signages' : 'Inactive / offline'}
+                </div>
+              </div>
+              <label className="switch-control">
+                <input 
+                  type="checkbox" 
+                  checked={formData.status === 'Active'} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.checked ? 'Active' : 'Inactive' }))}
+                />
+                <span className="switch-slider"></span>
+              </label>
             </div>
           </div>
 
-        </div>
-      )}
+          {/* Card 2: Branch & Group Allocation (Right Panel) */}
+          <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, borderBottom: '1px solid var(--color-border)', paddingBottom: '8px' }}>Network Allocation</h3>
 
-      {/* Add / Edit TV Registry Modal */}
-      {formOpen && (
-        <div className="modal-overlay">
-          <div className="modal-container size-md">
-            <div className="modal-header">
-              <h3>{editTarget ? 'Edit TV Settings' : 'Register TV Device'}</h3>
-              <button onClick={() => setFormOpen(false)} className="modal-close-btn">
-                <X size={16} />
-              </button>
+            <div className="form-group">
+              <label className="form-label">Allocated Branch <span className="required">*</span></label>
+              <select 
+                value={formData.branchId} 
+                onChange={(e) => setFormData(prev => ({ ...prev, branchId: e.target.value }))}
+                className={`form-control ${errors.branchId ? 'error' : ''}`}
+              >
+                <option value="">Select Branch</option>
+                {branches.map(b => (
+                  <option key={b.id} value={b.id}>{b.name} ({b.status})</option>
+                ))}
+              </select>
+              {errors.branchId && <span className="form-error">{errors.branchId}</span>}
             </div>
-            <div className="modal-body">
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label">TV Display Name <span className="required">*</span></label>
-                <input 
-                  type="text" 
-                  value={formData.name} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))} 
-                  className={`form-control ${errors.name ? 'error' : ''}`}
-                  placeholder="e.g. Reception TV Menu Board"
-                />
-                {errors.name && <span className="form-error">{errors.name}</span>}
-              </div>
 
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label">TV Physical Device ID (Unique Code) <span className="required">*</span></label>
-                <input 
-                  type="text" 
-                  value={formData.tvId} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, tvId: e.target.value }))} 
-                  className={`form-control ${errors.tvId ? 'error' : ''}`}
-                  placeholder="e.g. TV-UDUPI-01"
-                />
-                {errors.tvId && <span className="form-error">{errors.tvId}</span>}
-              </div>
-
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label">Branch Assignment <span className="required">*</span></label>
-                <select 
-                  value={formData.branchId} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, branchId: e.target.value }))}
-                  className={`form-control ${errors.branchId ? 'error' : ''}`}
-                >
-                  <option value="">-- Choose Branch Location --</option>
-                  {branches.map(b => (
-                    <option key={b.id} value={b.id}>
-                      {b.name} {b.status === 'Inactive' ? '(Inactive)' : ''}
-                    </option>
-                  ))}
-                </select>
-                {errors.branchId && <span className="form-error">{errors.branchId}</span>}
-              </div>
-
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label">Display Group Association</label>
-                <select 
-                  value={formData.groupId} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, groupId: e.target.value }))}
-                  className="form-control"
-                >
-                  <option value="">None (Standalone Display)</option>
-                  {groups.filter(g => g.status === 'Active').map(g => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label">Individual Playlist Assignment (Priority Override)</label>
-                <select 
-                  value={formData.playlistId} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, playlistId: e.target.value }))}
-                  className="form-control"
-                >
-                  <option value="">None (Use default fallback / inherit group playlist)</option>
-                  {playlists.filter(p => p.status === 'Active').map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Device Status</label>
-                <select 
-                  value={formData.status} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                  className="form-control"
-                >
-                  <option value="Active">Active (Available for Playback)</option>
-                  <option value="Inactive">Inactive (Disabled)</option>
-                </select>
-              </div>
+            <div className="form-group">
+              <label className="form-label">Display Network Group</label>
+              <select 
+                value={formData.groupId} 
+                onChange={(e) => setFormData(prev => ({ ...prev, groupId: e.target.value }))}
+                className="form-control"
+              >
+                <option value="">None (Standalone)</option>
+                {groups.map(g => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
             </div>
-            <div className="modal-footer">
-              <button onClick={() => setFormOpen(false)} className="btn btn-secondary">Cancel</button>
-              <button onClick={handleSaveTV} className="btn btn-primary">Save Settings</button>
+
+            <div className="form-group">
+              <label className="form-label">Playlist Override (Priority 1)</label>
+              <select 
+                value={formData.playlistId} 
+                onChange={(e) => setFormData(prev => ({ ...prev, playlistId: e.target.value }))}
+                className="form-control"
+              >
+                <option value="">No Override (Inherit Group Loop)</option>
+                {playlists.filter(p => p.status === 'Active').map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
@@ -616,7 +611,7 @@ const Devices = () => {
             <div className="modal-header" style={{ borderBottom: 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-error)' }}>
                 <AlertTriangle size={20} />
-                <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Unregister TV</h3>
+                <h3 style={{ fontSize: '15px', fontWeight: 600 }}>De-register TV Screen</h3>
               </div>
               <button onClick={() => setConfirmDeleteTarget(null)} className="modal-close-btn">
                 <X size={16} />
@@ -624,13 +619,13 @@ const Devices = () => {
             </div>
             <div className="modal-body" style={{ padding: '0 24px 16px 24px' }}>
               <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
-                Are you sure you want to permanently unregister TV device <strong>{confirmDeleteTarget.name} ({confirmDeleteTarget.tvId})</strong>? 
-                This action cannot be undone.
+                Are you sure you want to permanently de-register TV Screen <strong>{confirmDeleteTarget.name}</strong> ({confirmDeleteTarget.tvId})? 
+                This action cancels active digital signage playbacks.
               </p>
             </div>
             <div className="modal-footer" style={{ borderTop: 'none', padding: '16px 24px' }}>
               <button onClick={() => setConfirmDeleteTarget(null)} className="btn btn-secondary">Cancel</button>
-              <button onClick={handleDeleteConfirm} className="btn btn-danger">Unregister</button>
+              <button onClick={handleDeleteConfirm} className="btn btn-danger">Delete Screen</button>
             </div>
           </div>
         </div>
@@ -641,7 +636,7 @@ const Devices = () => {
         <div className="modal-overlay">
           <div className="modal-container size-sm">
             <div className="modal-header">
-              <h3>Filter TV Displays</h3>
+              <h3>Filter Display TVs</h3>
               <button onClick={() => setFilterOpen(false)} className="modal-close-btn">
                 <X size={16} />
               </button>
@@ -662,6 +657,19 @@ const Devices = () => {
               </div>
 
               <div className="form-group">
+                <label className="form-label">Connection Status</label>
+                <select 
+                  value={activeFilters.status} 
+                  onChange={(e) => setActiveFilters(prev => ({ ...prev, status: e.target.value }))}
+                  className="form-control"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+
+              <div className="form-group">
                 <label className="form-label">Display Group</label>
                 <select 
                   value={activeFilters.groupId} 
@@ -676,28 +684,15 @@ const Devices = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Assignment Status</label>
+                <label className="form-label">Playlist Assignment</label>
                 <select 
                   value={activeFilters.assignmentStatus} 
                   onChange={(e) => setActiveFilters(prev => ({ ...prev, assignmentStatus: e.target.value }))}
                   className="form-control"
                 >
-                  <option value="">All Assignments</option>
+                  <option value="">All Configurations</option>
                   <option value="Assigned">Assigned Playlists</option>
-                  <option value="Unassigned">Unassigned (Offline Loop)</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Device Status</label>
-                <select 
-                  value={activeFilters.status} 
-                  onChange={(e) => setActiveFilters(prev => ({ ...prev, status: e.target.value }))}
-                  className="form-control"
-                >
-                  <option value="">All Statuses</option>
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
+                  <option value="Unassigned">Unassigned Screens</option>
                 </select>
               </div>
             </div>
