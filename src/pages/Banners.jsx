@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { 
   ChevronRight, Plus, Search, Filter, AlertTriangle, X, 
   Image as ImageIcon, Film, Play, Settings, RefreshCw, ServerCrash,
-  Upload, CheckCircle, Trash2
+  Upload, CheckCircle, Trash2, ChevronLeft, Edit2
 } from 'lucide-react';
 import DataTable from '../components/table/DataTable';
 
@@ -21,6 +21,10 @@ const Banners = () => {
   const fileInputRef = useRef(null);
   const defaultFileInputRef = useRef(null);
 
+  // Layout View States
+  const [viewState, setViewState] = useState('list'); // 'list' | 'add' | 'edit' | 'detail'
+  const [selectedBannerId, setSelectedBannerId] = useState(null);
+
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState({ status: '', mediaType: '' });
@@ -30,13 +34,11 @@ const Banners = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
 
-  // Modals state
-  const [formOpen, setFormOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState(null);
+  // Delete Confirmation Modal State
   const [confirmDeleteTarget, setConfirmDeleteTarget] = useState(null);
   const [defaultContentOpen, setDefaultContentOpen] = useState(false);
 
-  // Form State
+  // Form State for Add/Edit
   const initialForm = {
     name: '',
     mediaUrl: '',
@@ -73,21 +75,24 @@ const Banners = () => {
   };
 
   const handleOpenAdd = () => {
-    setEditTarget(null);
     setFormData(initialForm);
     setErrors({});
     setUploadProgress(null);
     setUploadError('');
-    setFormOpen(true);
+    setViewState('add');
   };
 
   const handleOpenEdit = (banner) => {
-    setEditTarget(banner.id);
     setFormData({ ...banner });
     setErrors({});
     setUploadProgress('done');
     setUploadError('');
-    setFormOpen(true);
+    setViewState('edit');
+  };
+
+  const handleRowClick = (banner) => {
+    setSelectedBannerId(banner.id);
+    setViewState('detail');
   };
 
   // HTML5 File Selection & Validation Handler
@@ -99,136 +104,136 @@ const Banners = () => {
     const setError = isDefaultFallback ? setDefaultUploadError : setUploadError;
     const setForm = isDefaultFallback ? setDefaultFormData : setFormData;
 
-    // 1. File Format Type Check
-    const acceptedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'video/mp4', 'video/webm'];
-    if (!acceptedTypes.includes(file.type)) {
-      setError('Unsupported media format. Please upload a supported image or video.');
-      setProgress(null);
-      return;
-    }
-
-    // 2. File Size Limit Check (Max 15MB)
-    const maxSize = 15 * 1024 * 1024;
-    if (file.size > maxSize) {
-      setError('File size exceeds the allowed limit (15MB). Please select a smaller file.');
-      setProgress(null);
-      return;
-    }
-
-    // 3. Auto Identify Media Type
-    const detectedType = file.type.startsWith('video/') ? 'Video' : 'Image';
-
     setError('');
     setProgress(0);
 
-    // 4. Simulate Upload Progress
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 25;
-      setProgress(progress);
-      if (progress >= 100) {
-        clearInterval(interval);
-        setProgress('done');
+    // Rule 4: Validation (Limits: 15MB)
+    const maxLimitBytes = 15 * 1024 * 1024;
+    if (file.size > maxLimitBytes) {
+      setError('File size exceeds the 15MB limit.');
+      setProgress(null);
+      return;
+    }
+
+    // Auto-detect format type
+    let identifiedType = 'Image';
+    if (file.type.startsWith('video/')) {
+      identifiedType = 'Video';
+    } else if (!file.type.startsWith('image/')) {
+      setError('Invalid format type. Please upload a standard image or video file.');
+      setProgress(null);
+      return;
+    }
+
+    // Simulate upload progress steps
+    let currentPct = 0;
+    const uploadInterval = setInterval(() => {
+      currentPct += 20;
+      setProgress(currentPct);
+      
+      if (currentPct >= 100) {
+        clearInterval(uploadInterval);
         
-        // Generate Browser temporary local path
+        // Create local object URL for preview purposes
         const localUrl = URL.createObjectURL(file);
+        
         setForm(prev => ({
           ...prev,
           mediaUrl: localUrl,
-          mediaType: detectedType,
-          mediaFileName: file.name,
-          duration: detectedType === 'Video' ? 10 : prev.duration
+          mediaType: identifiedType,
+          mediaFileName: file.name
         }));
+        setProgress('done');
       }
-    }, 120);
+    }, 150);
   };
 
-  const handleRemoveSelectedMedia = (isDefaultFallback = false) => {
-    const setProgress = isDefaultFallback ? setDefaultUploadProgress : setUploadProgress;
-    const setForm = isDefaultFallback ? setDefaultFormData : setFormData;
-    
-    setProgress(null);
-    setForm(prev => ({
+  const handleRemoveUploadedFile = () => {
+    setFormData(prev => ({
       ...prev,
       mediaUrl: '',
-      mediaFileName: ''
+      mediaFileName: '',
+      mediaType: 'Image'
     }));
-    
-    // Clear input element so same file can be selected again
-    if (isDefaultFallback && defaultFileInputRef.current) {
-      defaultFileInputRef.current.value = '';
-    } else if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    setUploadProgress(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const validate = () => {
+  const handleRemoveDefaultFile = () => {
+    setDefaultFormData(prev => ({
+      ...prev,
+      mediaUrl: '',
+      mediaFileName: '',
+      mediaType: 'Image'
+    }));
+    setDefaultUploadProgress(null);
+    if (defaultFileInputRef.current) defaultFileInputRef.current.value = '';
+  };
+
+  const validateForm = () => {
     const tempErrors = {};
     if (!formData.name?.trim()) tempErrors.name = 'Banner Name is required';
-    if (!formData.mediaUrl) tempErrors.mediaUrl = 'Media File upload is required';
+    if (!formData.mediaUrl) tempErrors.mediaFile = 'Media file upload is required';
     
+    // Duration validation (Required for images)
     if (formData.mediaType === 'Image') {
-      if (!formData.duration || formData.duration <= 0) {
-        tempErrors.duration = 'Display Duration must be greater than zero';
+      const durationVal = parseInt(formData.duration);
+      if (isNaN(durationVal) || durationVal <= 0) {
+        tempErrors.duration = 'Valid positive duration is required for image banners';
       }
     }
+
     setErrors(tempErrors);
     return Object.keys(tempErrors).length === 0;
   };
 
-  const handleSave = () => {
-    if (!validate()) return;
+  const handleSaveBanner = () => {
+    if (!validateForm()) return;
 
-    if (editTarget) {
-      const success = editBanner(editTarget, formData);
-      if (success) setFormOpen(false);
+    if (viewState === 'edit') {
+      const success = editBanner(formData.id, formData);
+      if (success) setViewState('list');
     } else {
       const success = addBanner(formData);
-      if (success) setFormOpen(false);
+      if (success) setViewState('list');
     }
+  };
+
+  const validateDefaultForm = () => {
+    const tempErrors = {};
+    if (!defaultFormData.name?.trim()) tempErrors.name = 'Default Banner Name is required';
+    if (!defaultFormData.mediaUrl) tempErrors.mediaFile = 'Media file upload is required';
+    
+    setDefaultErrors(tempErrors);
+    return Object.keys(tempErrors).length === 0;
+  };
+
+  const handleSaveDefaultContent = () => {
+    if (!validateDefaultForm()) return;
+    const success = updateDefaultContent(defaultFormData);
+    if (success) setDefaultContentOpen(false);
   };
 
   const handleDeleteConfirm = () => {
     if (confirmDeleteTarget) {
       deleteBanner(confirmDeleteTarget.id);
       setConfirmDeleteTarget(null);
+      if (selectedBannerId === confirmDeleteTarget.id) {
+        setViewState('list');
+      }
     }
   };
 
-  const handleSaveDefaultContent = () => {
-    if (!defaultFormData.name?.trim()) {
-      setDefaultErrors({ name: 'Default Name is required' });
-      return;
-    }
-    if (!defaultFormData.mediaUrl) {
-      setDefaultErrors({ mediaUrl: 'Default Fallback Media upload is required' });
-      return;
-    }
-
-    const success = updateDefaultContent(defaultFormData);
-    if (success) {
-      setDefaultContentOpen(false);
-    }
-  };
-
-  const handleOpenDefaultEdit = () => {
-    setDefaultFormData({ ...defaultContent });
-    setDefaultErrors({});
-    setDefaultUploadProgress('done');
-    setDefaultUploadError('');
-    setDefaultContentOpen(true);
-  };
-
+  // Columns for datatable list view
   const columns = [
-    {
-      field: 'mediaUrl',
-      header: 'Preview',
+    { 
+      field: 'mediaUrl', 
+      header: 'Preview', 
       render: (val, row) => (
-        <div style={{ position: 'relative', width: '60px', height: '36px', borderRadius: '4px', overflow: 'hidden', backgroundColor: '#f1f5f9', border: '1px solid var(--color-border)' }}>
+        <div style={{ width: '60px', height: '36px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--color-border)', backgroundColor: '#f1f5f9' }}>
           {row.mediaType === 'Video' ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', color: 'var(--color-primary)' }}>
-              <Film size={16} />
-              <Play size={8} style={{ position: 'absolute', opacity: 0.8 }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--color-primary)' }}>
+              <Film size={14} />
             </div>
           ) : (
             <img src={val} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -237,28 +242,11 @@ const Banners = () => {
       )
     },
     { field: 'name', header: 'Banner Name', sortable: true },
-    { 
-      field: 'mediaType', 
-      header: 'Type', 
-      sortable: true,
-      render: (val) => (
-        <span style={{ 
-          display: 'inline-flex', 
-          alignItems: 'center', 
-          gap: '4px',
-          fontSize: '11px',
-          fontWeight: 600,
-          color: val === 'Video' ? 'var(--color-info)' : 'var(--color-text-secondary)'
-        }}>
-          {val === 'Video' ? <Film size={12} /> : <ImageIcon size={12} />}
-          {val}
-        </span>
-      )
-    },
+    { field: 'mediaType', header: 'Format Type', sortable: true },
     { 
       field: 'duration', 
       header: 'Duration', 
-      render: (val, row) => row.mediaType === 'Video' ? 'Auto (Length)' : `${val}s`
+      render: (val, row) => row.mediaType === 'Video' ? 'Auto' : `${val}s` 
     },
     { 
       field: 'status', 
@@ -272,27 +260,77 @@ const Banners = () => {
     }
   ];
 
-  // Active filters count
+  // Filtering list logic
+  const filteredBanners = banners.filter(b => {
+    if (searchQuery && !b.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (activeFilters.status && b.status !== activeFilters.status) return false;
+    if (activeFilters.mediaType && b.mediaType !== activeFilters.mediaType) return false;
+    return true;
+  });
+
   const activeFiltersCount = Object.values(activeFilters).filter(Boolean).length;
+  const currentSelectedBanner = banners.find(b => b.id === selectedBannerId);
 
   return (
     <div>
-      {/* Breadcrumb */}
+      {/* Breadcrumb path navigation */}
       <div className="breadcrumb">
-        <span>Business</span>
+        <span>TV Display</span>
         <ChevronRight size={12} className="breadcrumb-separator" />
-        <span className="breadcrumb-item active">Banners</span>
+        <span className="breadcrumb-item active" style={{ cursor: viewState !== 'list' ? 'pointer' : 'default' }} onClick={() => setViewState('list')}>
+          Banners
+        </span>
+        {viewState === 'add' && (
+          <>
+            <ChevronRight size={12} className="breadcrumb-separator" />
+            <span className="breadcrumb-item active">Add Banner</span>
+          </>
+        )}
+        {viewState === 'edit' && (
+          <>
+            <ChevronRight size={12} className="breadcrumb-separator" />
+            <span className="breadcrumb-item active">Edit Banner</span>
+          </>
+        )}
+        {viewState === 'detail' && currentSelectedBanner && (
+          <>
+            <ChevronRight size={12} className="breadcrumb-separator" />
+            <span className="breadcrumb-item active">{currentSelectedBanner.name}</span>
+          </>
+        )}
       </div>
 
       {/* Page Header */}
       <div className="page-header">
         <div className="page-title-group">
-          <h1>Banners</h1>
-          <p>Create, upload, and maintain promotional graphics and videos for kiosk signs.</p>
+          {viewState === 'list' && (
+            <>
+              <h1>Banner Library</h1>
+              <p>Upload, preview, and configure timings for advertisement banner graphic loops.</p>
+            </>
+          )}
+          {viewState === 'add' && (
+            <>
+              <h1>Add Banner</h1>
+              <p>Create a new promotional slideshow banner.</p>
+            </>
+          )}
+          {viewState === 'edit' && (
+            <>
+              <h1>Edit Banner</h1>
+              <p>Update configurations for your creative media banner.</p>
+            </>
+          )}
+          {viewState === 'detail' && currentSelectedBanner && (
+            <>
+              <h1>{currentSelectedBanner.name}</h1>
+              <p>View creative assets and active timing attributes.</p>
+            </>
+          )}
         </div>
-        
+
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {/* Dev Sim State Console */}
+          {/* Dev Sim Console Controls */}
           <div style={{ 
             display: 'flex', 
             gap: '4px', 
@@ -327,45 +365,44 @@ const Banners = () => {
           </div>
 
           {!isError && (
-            <button className="btn btn-primary" onClick={handleOpenAdd}>
-              <Plus size={16} />
-              <span>Add Banner</span>
-            </button>
+            viewState === 'list' ? (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-outline" onClick={() => { setDefaultFormData({ ...defaultContent }); setDefaultErrors({}); setDefaultUploadProgress('done'); setDefaultUploadError(''); setDefaultContentOpen(true); }}>
+                  <Settings size={15} />
+                  <span>Configure Fallback</span>
+                </button>
+                <button className="btn btn-primary" onClick={handleOpenAdd}>
+                  <Plus size={16} />
+                  <span>Add Banner</span>
+                </button>
+              </div>
+            ) : viewState === 'detail' ? (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn btn-secondary" onClick={() => setViewState('list')}>
+                  <ChevronLeft size={16} />
+                  <span>Back to Library</span>
+                </button>
+                <button className="btn btn-primary" onClick={() => handleOpenEdit(currentSelectedBanner)}>
+                  <Edit2 size={15} />
+                  <span>Edit Banner</span>
+                </button>
+              </div>
+            ) : (
+              <button className="btn btn-secondary" onClick={() => setViewState('list')}>
+                Cancel
+              </button>
+            )
           )}
         </div>
       </div>
-
-      {/* Default content fallback looping banner widget */}
-      {!isError && !isLoading && (
-        <div className="card" style={{ marginBottom: '24px', borderLeft: '4px solid var(--color-primary)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
-            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <div style={{ width: '100px', height: '60px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--color-border)', backgroundColor: '#f1f5f9' }}>
-                <img src={defaultContent.mediaUrl} alt="Default Content" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </div>
-              <div>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Default / Fallback Loop content</span>
-                <h3 style={{ fontSize: '15px', fontWeight: 600, marginTop: '2px' }}>{defaultContent.name}</h3>
-                <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-                  Plays when no scheduled playlists are active. Format: <strong>{defaultContent.mediaType}</strong>
-                </p>
-              </div>
-            </div>
-            <button className="btn btn-outline" onClick={handleOpenDefaultEdit}>
-              <Settings size={15} />
-              <span>Configure Fallback</span>
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Page States */}
       {isError ? (
         <div className="card" style={{ textAlign: 'center', padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', border: '1px solid var(--color-error)', maxWidth: '480px', margin: '24px auto' }}>
           <AlertTriangle size={36} style={{ color: 'var(--color-error)' }} />
-          <h3>Unable to load banners content</h3>
+          <h3>Unable to fetch media assets</h3>
           <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px' }}>
-            We encountered a network timeout error while querying the media catalog database.
+            We encountered a connection handshake error.
           </p>
           <button className="btn btn-primary" onClick={() => { setIsError(false); triggerSimulatedLoad(); }}>
             Try Again
@@ -374,66 +411,423 @@ const Banners = () => {
       ) : isLoading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div style={{ height: '36px', backgroundColor: '#e2e8f0', borderRadius: '6px', width: '100%', animation: 'pulse 1.5s infinite' }}></div>
-          <div style={{ height: '40px', backgroundColor: '#f1f5f9', borderRadius: '6px', width: '100%', animation: 'pulse 1.5s infinite', display: 'flex', alignItems: 'center', padding: '0 12px', gap: '20px' }}>
-            <div style={{ width: '40px', height: '24px', backgroundColor: '#cbd5e1', borderRadius: '3px' }}></div>
-            <div style={{ width: '150px', height: '14px', backgroundColor: '#cbd5e1', borderRadius: '3px' }}></div>
-            <div style={{ width: '80px', height: '14px', backgroundColor: '#cbd5e1', borderRadius: '3px' }}></div>
-            <div style={{ width: '80px', height: '14px', backgroundColor: '#cbd5e1', borderRadius: '3px' }}></div>
-          </div>
           <div style={{ height: '44px', backgroundColor: '#ffffff', border: '1px solid var(--color-border)', borderRadius: '6px', width: '100%', animation: 'pulse 1.5s infinite', opacity: 0.8 }}></div>
           <div style={{ height: '44px', backgroundColor: '#ffffff', border: '1px solid var(--color-border)', borderRadius: '6px', width: '100%', animation: 'pulse 1.5s infinite', opacity: 0.6 }}></div>
         </div>
-      ) : banners.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '56px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', maxWidth: '480px', margin: '32px auto' }}>
-          <ImageIcon size={36} style={{ color: 'var(--color-text-muted)' }} />
-          <h3>No banners uploaded yet</h3>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', maxWidth: '340px' }}>
-            Start building your restaurant display media catalog by uploading images or videos of dishes and weekly offers.
-          </p>
-          <button className="btn btn-primary" onClick={handleOpenAdd}>
-            <Plus size={16} />
-            <span>Upload First Banner</span>
-          </button>
-        </div>
-      ) : (
+      ) : viewState === 'list' ? (
+        /* LISTING VIEW */
         <>
-          {/* Search Toolbar */}
-          <div className="toolbar">
-            <div className="toolbar-left">
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: 1, maxWidth: '320px' }}>
-                <Search size={15} style={{ position: 'absolute', left: '12px', color: 'var(--color-text-muted)', opacity: 0.6 }} />
-                <input 
-                  type="text" 
-                  placeholder="Search banners by name..." 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="form-control"
-                  style={{ width: '100%', paddingLeft: '36px', height: '36px' }}
-                />
-                {searchQuery && (
-                  <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: '12px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-              <button onClick={() => setFilterOpen(true)} className="btn btn-outline" style={{ height: '36px' }}>
-                <Filter size={15} />
-                <span>Filter{activeFiltersCount > 0 ? ` • ${activeFiltersCount}` : ''}</span>
+          {banners.length === 0 ? (
+            <div className="card" style={{ textAlign: 'center', padding: '56px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', maxWidth: '480px', margin: '32px auto' }}>
+              <ImageIcon size={36} style={{ color: 'var(--color-text-muted)' }} />
+              <h3>No banners configured yet</h3>
+              <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', maxWidth: '340px' }}>
+                Upload landscape pictures and promo videoclips to begin creating loops.
+              </p>
+              <button className="btn btn-primary" onClick={handleOpenAdd}>
+                <Plus size={16} />
+                <span>Upload First Banner</span>
               </button>
+            </div>
+          ) : (
+            <>
+              {/* Search Toolbar */}
+              <div className="toolbar">
+                <div className="toolbar-left">
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: 1, maxWidth: '320px' }}>
+                    <Search size={15} style={{ position: 'absolute', left: '12px', color: 'var(--color-text-muted)', opacity: 0.6 }} />
+                    <input 
+                      type="text" 
+                      placeholder="Search banners by name..." 
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="form-control"
+                      style={{ width: '100%', paddingLeft: '36px', height: '36px' }}
+                    />
+                    {searchQuery && (
+                      <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: '12px', border: 'none', background: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}>
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                  <button onClick={() => setFilterOpen(true)} className="btn btn-outline" style={{ height: '36px' }}>
+                    <Filter size={15} />
+                    <span>Filter{activeFiltersCount > 0 ? ` • ${activeFiltersCount}` : ''}</span>
+                  </button>
+                </div>
+              </div>
+
+              <DataTable 
+                columns={columns}
+                data={filteredBanners}
+                onEdit={handleOpenEdit}
+                onDelete={(banner) => setConfirmDeleteTarget(banner)}
+                searchQuery={searchQuery}
+                searchField="name"
+                filters={activeFilters}
+                keyField="id"
+                onRowClick={handleRowClick}
+              />
+            </>
+          )}
+
+          {/* Active Default content widget summary card */}
+          {defaultContent && (
+            <div className="card" style={{ marginTop: '24px', display: 'flex', gap: '20px', alignItems: 'center', backgroundColor: '#f8fafc' }}>
+              <div style={{ width: '120px', height: '70px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--color-border)', flexShrink: 0, backgroundColor: '#ffffff' }}>
+                <img src={defaultContent.mediaUrl} alt="fallback" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '10px', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>Default Loop Fallback</div>
+                <h4 style={{ fontSize: '14px', fontWeight: 600, marginTop: '2px' }}>{defaultContent.name}</h4>
+                <p style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>Displays continuously when there are no valid active playlist promotions available.</p>
+              </div>
+              <button className="btn btn-outline" onClick={() => { setDefaultFormData({ ...defaultContent }); setDefaultErrors({}); setDefaultUploadProgress('done'); setDefaultUploadError(''); setDefaultContentOpen(true); }}>
+                Replace Fallback
+              </button>
+            </div>
+          )}
+        </>
+      ) : viewState === 'detail' && currentSelectedBanner ? (
+        /* DETAIL VIEW SUB-PAGE */
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '24px', alignItems: 'start' }}>
+          {/* Left panel: Media Player frame */}
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 600 }}>Media Asset Preview</h3>
+            <div style={{ width: '100%', aspectRatio: '16/9', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--color-border)', backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {currentSelectedBanner.mediaType === 'Video' ? (
+                <video src={currentSelectedBanner.mediaUrl} controls autoPlay muted style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              ) : (
+                <img src={currentSelectedBanner.mediaUrl} alt="banner" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              )}
             </div>
           </div>
 
-          <DataTable 
-            columns={columns}
-            data={banners}
-            onEdit={handleOpenEdit}
-            onDelete={(banner) => setConfirmDeleteTarget(banner)}
-            searchQuery={searchQuery}
-            searchField="name"
-            filters={activeFilters}
-            keyField="id"
-          />
-        </>
+          {/* Right panel: Attributes grid */}
+          <div className="card">
+            <h3 style={{ fontSize: '14px', fontWeight: 600, borderBottom: '1px solid var(--color-border)', paddingBottom: '8px', marginBottom: '12px' }}>Attributes</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '14px' }}>
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Banner Name</div>
+                <div style={{ fontWeight: 500, fontSize: '13px' }}>{currentSelectedBanner.name}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Format Type</div>
+                <div style={{ fontWeight: 500, fontSize: '13px' }}>{currentSelectedBanner.mediaType}</div>
+              </div>
+              {currentSelectedBanner.mediaType === 'Image' && (
+                <div>
+                  <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Duration</div>
+                  <div style={{ fontWeight: 500, fontSize: '13px' }}>{currentSelectedBanner.duration} seconds</div>
+                </div>
+              )}
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>File Name</div>
+                <div style={{ fontWeight: 500, fontSize: '13px', wordBreak: 'break-all' }}>{currentSelectedBanner.mediaFileName || 'No file trace'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>Banner Status</div>
+                <span className={`badge badge-${currentSelectedBanner.status.toLowerCase()}`}>
+                  {currentSelectedBanner.status}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* ADD / EDIT SUB-PAGE FORM */
+        <div className="card" style={{ maxWidth: '720px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+            <div className="form-group">
+              <label className="form-label">Banner Name <span className="required">*</span></label>
+              <input 
+                type="text" 
+                value={formData.name} 
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g. Diwali Fest Special"
+                className={`form-control ${errors.name ? 'error' : ''}`}
+              />
+              {errors.name && <span className="form-error">{errors.name}</span>}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Banner Status</label>
+              <select 
+                value={formData.status} 
+                onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                className="form-control"
+              >
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+            {/* Media Upload Dropzone */}
+            <div className="form-group">
+              <label className="form-label">Media Upload <span className="required">*</span></label>
+              <div 
+                style={{ 
+                  border: errors.mediaFile ? '1.5px dashed var(--color-error)' : '1.5px dashed var(--color-border)',
+                  borderRadius: '6px',
+                  padding: '20px 12px',
+                  textAlign: 'center',
+                  backgroundColor: '#f8fafc',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  minHeight: '140px'
+                }}
+                onClick={() => {
+                  if (uploadProgress !== 'done' && fileInputRef.current) {
+                    fileInputRef.current.click();
+                  }
+                }}
+              >
+                <input 
+                  type="file" 
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
+                  accept="image/*,video/*"
+                  onChange={handleFileSelection}
+                />
+                
+                {uploadProgress === null && (
+                  <>
+                    <Upload size={24} style={{ color: 'var(--color-text-secondary)' }} />
+                    <span style={{ fontSize: '12px', fontWeight: 500 }}>Choose image or video file</span>
+                    <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>Supported formats up to 15MB</span>
+                  </>
+                )}
+
+                {typeof uploadProgress === 'number' && (
+                  <div style={{ width: '100%', padding: '0 8px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 600, marginBottom: '6px' }}>Uploading creative... {uploadProgress}%</div>
+                    <div style={{ height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${uploadProgress}%`, backgroundColor: 'var(--color-primary)', transition: 'width 100ms ease' }} />
+                    </div>
+                  </div>
+                )}
+
+                {uploadProgress === 'done' && (
+                  <>
+                    <CheckCircle size={24} style={{ color: 'var(--color-success)' }} />
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-success)' }}>File Uploaded Successfully</span>
+                    <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', wordBreak: 'break-all' }}>{formData.mediaFileName}</span>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                      <button 
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); fileInputRef.current.click(); }} 
+                        className="btn btn-outline" 
+                        style={{ height: '24px', fontSize: '10px', padding: '0 8px' }}
+                      >
+                        Replace
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleRemoveUploadedFile(); }} 
+                        className="btn btn-outline" 
+                        style={{ height: '24px', fontSize: '10px', padding: '0 8px', borderColor: 'var(--color-error)', color: 'var(--color-error)' }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+              {uploadError && <span style={{ color: 'var(--color-error)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{uploadError}</span>}
+              {errors.mediaFile && <span className="form-error">{errors.mediaFile}</span>}
+            </div>
+
+            {/* Display Duration (Disabled for Video) */}
+            <div className="form-group">
+              <label className="form-label">
+                Display Duration (Seconds) {formData.mediaType === 'Image' && <span className="required">*</span>}
+              </label>
+              <input 
+                type="number" 
+                value={formData.mediaType === 'Video' ? '' : formData.duration} 
+                onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
+                disabled={formData.mediaType === 'Video'}
+                placeholder={formData.mediaType === 'Video' ? 'Auto-detected from video length' : 'e.g. 10'}
+                className={`form-control ${errors.duration ? 'error' : ''}`}
+              />
+              {formData.mediaType === 'Video' && (
+                <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '4px', display: 'block' }}>
+                  Video loop duration matches creative playtime.
+                </span>
+              )}
+              {errors.duration && <span className="form-error">{errors.duration}</span>}
+            </div>
+          </div>
+
+          {/* Upload Preview panel in the form */}
+          {formData.mediaUrl && uploadProgress === 'done' && (
+            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px', marginBottom: '24px' }}>
+              <label className="form-label" style={{ marginBottom: '8px' }}>Creative Asset Preview</label>
+              <div style={{ width: '100%', height: '200px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--color-border)', backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {formData.mediaType === 'Video' ? (
+                  <video src={formData.mediaUrl} controls autoPlay muted style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                ) : (
+                  <img src={formData.mediaUrl} alt="prev" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
+            <button className="btn btn-secondary" onClick={() => setViewState('list')}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleSaveBanner}>Save Banner</button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {confirmDeleteTarget && (
+        <div className="modal-overlay">
+          <div className="modal-container size-sm" style={{ padding: '4px' }}>
+            <div className="modal-header" style={{ borderBottom: 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-error)' }}>
+                <AlertTriangle size={20} />
+                <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Delete Banner</h3>
+              </div>
+              <button onClick={() => setConfirmDeleteTarget(null)} className="modal-close-btn">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ padding: '0 24px 16px 24px' }}>
+              <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+                Are you sure you want to permanently delete banner <strong>{confirmDeleteTarget.name}</strong>? 
+                This action cannot be undone.
+              </p>
+            </div>
+            <div className="modal-footer" style={{ borderTop: 'none', padding: '16px 24px' }}>
+              <button onClick={() => setConfirmDeleteTarget(null)} className="btn btn-secondary">Cancel</button>
+              <button onClick={handleDeleteConfirm} className="btn btn-danger">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Configure Fallback signage modal */}
+      {defaultContentOpen && (
+        <div className="modal-overlay">
+          <div className="modal-container size-md">
+            <div className="modal-header">
+              <h3>Configure Fallback Signage</h3>
+              <button onClick={() => setDefaultContentOpen(false)} className="modal-close-btn">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label">Fallback Banner Name <span className="required">*</span></label>
+                <input 
+                  type="text" 
+                  value={defaultFormData.name} 
+                  onChange={(e) => setDefaultFormData(prev => ({ ...prev, name: e.target.value }))}
+                  className={`form-control ${defaultErrors.name ? 'error' : ''}`}
+                  placeholder="e.g. Spice Junction Main Welcome Screen"
+                />
+                {defaultErrors.name && <span className="form-error">{defaultErrors.name}</span>}
+              </div>
+
+              {/* File selection dropzone */}
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label">Upload Fallback Media <span className="required">*</span></label>
+                <div 
+                  style={{ 
+                    border: defaultErrors.mediaFile ? '1.5px dashed var(--color-error)' : '1.5px dashed var(--color-border)',
+                    borderRadius: '6px',
+                    padding: '20px 12px',
+                    textAlign: 'center',
+                    backgroundColor: '#f8fafc',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    cursor: 'pointer',
+                    minHeight: '120px'
+                  }}
+                  onClick={() => {
+                    if (defaultUploadProgress !== 'done' && defaultFileInputRef.current) {
+                      defaultFileInputRef.current.click();
+                    }
+                  }}
+                >
+                  <input 
+                    type="file" 
+                    ref={defaultFileInputRef}
+                    style={{ display: 'none' }}
+                    accept="image/*"
+                    onChange={(e) => handleFileSelection(e, true)}
+                  />
+                  
+                  {defaultUploadProgress === null && (
+                    <>
+                      <Upload size={20} style={{ color: 'var(--color-text-secondary)' }} />
+                      <span style={{ fontSize: '12px', fontWeight: 500 }}>Select fallback image</span>
+                    </>
+                  )}
+
+                  {typeof defaultUploadProgress === 'number' && (
+                    <div style={{ width: '100%', padding: '0 8px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 600, marginBottom: '6px' }}>Uploading... {defaultUploadProgress}%</div>
+                      <div style={{ height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${defaultUploadProgress}%`, backgroundColor: 'var(--color-primary)' }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {defaultUploadProgress === 'done' && (
+                    <>
+                      <CheckCircle size={20} style={{ color: 'var(--color-success)' }} />
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-success)' }}>Fallback Image Loaded</span>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                        <button 
+                          type="button" 
+                          onClick={(e) => { e.stopPropagation(); defaultFileInputRef.current.click(); }} 
+                          className="btn btn-outline" 
+                          style={{ height: '24px', fontSize: '10px', padding: '0 8px' }}
+                        >
+                          Replace
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={(e) => { e.stopPropagation(); handleRemoveDefaultFile(); }} 
+                          className="btn btn-outline" 
+                          style={{ height: '24px', fontSize: '10px', padding: '0 8px', borderColor: 'var(--color-error)', color: 'var(--color-error)' }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+                {defaultUploadError && <span style={{ color: 'var(--color-error)', fontSize: '11px', marginTop: '4px', display: 'block' }}>{defaultUploadError}</span>}
+                {defaultErrors.mediaFile && <span className="form-error">{defaultErrors.mediaFile}</span>}
+              </div>
+
+              {/* Preview frame */}
+              {defaultFormData.mediaUrl && defaultUploadProgress === 'done' && (
+                <div style={{ width: '100%', height: '150px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--color-border)', backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <img src={defaultFormData.mediaUrl} alt="prev" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                </div>
+              )}
+
+            </div>
+            <div className="modal-footer">
+              <button onClick={() => setDefaultContentOpen(false)} className="btn btn-secondary">Cancel</button>
+              <button onClick={handleSaveDefaultContent} className="btn btn-primary">Save Fallback</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Filter dialog popup */}
@@ -459,14 +853,15 @@ const Banners = () => {
                   <option value="Inactive">Inactive</option>
                 </select>
               </div>
+
               <div className="form-group">
-                <label className="form-label">Media Type</label>
+                <label className="form-label">Format Type</label>
                 <select 
                   value={activeFilters.mediaType} 
                   onChange={(e) => setActiveFilters(prev => ({ ...prev, mediaType: e.target.value }))}
                   className="form-control"
                 >
-                  <option value="">All Media Types</option>
+                  <option value="">All Formats</option>
                   <option value="Image">Image</option>
                   <option value="Video">Video</option>
                 </select>
@@ -480,255 +875,6 @@ const Banners = () => {
                 <button onClick={() => setFilterOpen(false)} className="btn btn-outline">Cancel</button>
                 <button onClick={() => setFilterOpen(false)} className="btn btn-primary">Apply</button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add / Edit Banner Drawer Modal */}
-      {formOpen && (
-        <div className="modal-overlay">
-          <div className="modal-container size-md">
-            <div className="modal-header">
-              <h3>{editTarget ? 'Edit Banner' : 'Upload Banner'}</h3>
-              <button onClick={() => setFormOpen(false)} className="modal-close-btn">
-                <X size={16} />
-              </button>
-            </div>
-            <div className="modal-body" style={{ maxHeight: '70vh' }}>
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label">Banner Name <span className="required">*</span></label>
-                <input 
-                  type="text" 
-                  value={formData.name} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))} 
-                  className={`form-control ${errors.name ? 'error' : ''}`}
-                  placeholder="e.g. Weekday Lunch Special Offer"
-                />
-                {errors.name && <span className="form-error">{errors.name}</span>}
-              </div>
-
-              {/* Upload zone strictly using file picker (no direct URL inputs) */}
-              <div className="form-section" style={{ border: '1px dashed var(--color-border)', borderRadius: '8px', padding: '16px', backgroundColor: '#f8fafc', marginBottom: '16px' }}>
-                <label className="form-label" style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Media File Upload <span className="required">*</span></label>
-                
-                <input 
-                  type="file" 
-                  ref={fileInputRef}
-                  onChange={(e) => handleFileSelection(e, false)}
-                  style={{ display: 'none' }}
-                  accept="image/jpeg,image/jpg,image/png,image/webp,video/mp4,video/webm"
-                />
-
-                {uploadProgress === null ? (
-                  /* Initial selector visual click zone */
-                  <div 
-                    onClick={() => fileInputRef.current && fileInputRef.current.click()}
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 0', gap: '12px', cursor: 'pointer', border: '1px dashed var(--color-border-hover)', borderRadius: '6px', backgroundColor: '#ffffff' }}
-                  >
-                    <Upload size={32} style={{ color: 'var(--color-text-muted)' }} />
-                    <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-primary)' }}>Select media file from device</span>
-                    <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Supports JPG, PNG, WebP or MP4, WebM (Max 15MB)</span>
-                  </div>
-                ) : typeof uploadProgress === 'number' ? (
-                  /* Progress loader */
-                  <div style={{ padding: '24px 0', textAlign: 'center' }}>
-                    <RefreshCw size={24} style={{ animation: 'spin 1.5s linear infinite', color: 'var(--color-primary)', margin: '0 auto 8px auto' }} />
-                    <div style={{ fontSize: '12px', fontWeight: 600 }}>Uploading media file... {uploadProgress}%</div>
-                    <div style={{ width: '100%', height: '4px', backgroundColor: '#e2e8f0', borderRadius: '2px', marginTop: '8px' }}>
-                      <div style={{ width: `${uploadProgress}%`, height: '100%', backgroundColor: 'var(--color-primary)', borderRadius: '2px', transition: 'width 100ms' }}></div>
-                    </div>
-                  </div>
-                ) : (
-                  /* Success Uploaded Preview */
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: 'var(--color-success)', fontWeight: 600 }}>
-                        <CheckCircle size={14} /> Upload Complete
-                      </span>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button 
-                          type="button" 
-                          onClick={() => fileInputRef.current && fileInputRef.current.click()}
-                          className="btn btn-outline" 
-                          style={{ height: '24px', padding: '0 8px', fontSize: '10px' }}
-                        >
-                          Replace File
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={() => handleRemoveSelectedMedia(false)}
-                          className="btn btn-outline" 
-                          style={{ height: '24px', padding: '0 8px', fontSize: '10px', color: 'var(--color-error)' }}
-                        >
-                          <Trash2 size={10} style={{ marginRight: '2px' }} /> Remove
-                        </button>
-                      </div>
-                    </div>
-                    {/* Media render wrapper */}
-                    <div style={{ width: '100%', height: '150px', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--color-border)', backgroundColor: '#000000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {formData.mediaType === 'Video' ? (
-                        <video controls style={{ maxHeight: '100%', maxWidth: '100%' }}>
-                          <source src={formData.mediaUrl} type="video/mp4" />
-                          Your browser does not support HTML5 video preview.
-                        </video>
-                      ) : (
-                        <img src={formData.mediaUrl} alt="Preview" style={{ height: '100%', width: '100%', objectFit: 'contain' }} />
-                      )}
-                    </div>
-                    <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--color-text-secondary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                      Selected: <strong>{formData.mediaFileName}</strong>
-                    </div>
-                  </div>
-                )}
-                
-                {uploadError && <div style={{ color: 'var(--color-error)', fontSize: '12px', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}><AlertTriangle size={14} /> {uploadError}</div>}
-                {errors.mediaUrl && <div style={{ color: 'var(--color-error)', fontSize: '12px', marginTop: '4px' }}>{errors.mediaUrl}</div>}
-              </div>
-
-              {formData.mediaType === 'Image' && (
-                <div className="form-group" style={{ marginBottom: '16px' }}>
-                  <label className="form-label">Display Duration (Seconds) <span className="required">*</span></label>
-                  <input 
-                    type="number" 
-                    value={formData.duration} 
-                    onChange={(e) => setFormData(prev => ({ ...prev, duration: parseInt(e.target.value) || 0 }))} 
-                    className={`form-control ${errors.duration ? 'error' : ''}`}
-                    min="1"
-                  />
-                  {errors.duration && <span className="form-error">{errors.duration}</span>}
-                  <span className="form-helper">Determines how long this graphic shows up on the screen before scrolling.</span>
-                </div>
-              )}
-
-              <div className="form-group">
-                <label className="form-label">Banner Status</label>
-                <select 
-                  value={formData.status} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                  className="form-control"
-                >
-                  <option value="Active">Active (Operational)</option>
-                  <option value="Inactive">Inactive (Stored / Disabled)</option>
-                </select>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button onClick={() => setFormOpen(false)} className="btn btn-secondary">Cancel</button>
-              <button onClick={handleSave} className="btn btn-primary" disabled={uploadProgress !== 'done'}>Save Banner</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Configure Default Fallback Content Modal */}
-      {defaultContentOpen && (
-        <div className="modal-overlay">
-          <div className="modal-container size-sm">
-            <div className="modal-header">
-              <h3>Configure Fallback Signage</h3>
-              <button onClick={() => setDefaultContentOpen(false)} className="modal-close-btn">
-                <X size={16} />
-              </button>
-            </div>
-            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div className="form-group">
-                <label className="form-label">Fallback Banner Name</label>
-                <input 
-                  type="text" 
-                  value={defaultFormData.name} 
-                  onChange={(e) => setDefaultFormData(prev => ({ ...prev, name: e.target.value }))} 
-                  className="form-control"
-                />
-              </div>
-
-              {/* Fallback File Upload Zone */}
-              <div className="form-section" style={{ border: '1px dashed var(--color-border)', borderRadius: '8px', padding: '12px', backgroundColor: '#f8fafc' }}>
-                <label className="form-label" style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Fallback Media File <span className="required">*</span></label>
-                
-                <input 
-                  type="file" 
-                  ref={defaultFileInputRef}
-                  onChange={(e) => handleFileSelection(e, true)}
-                  style={{ display: 'none' }}
-                  accept="image/jpeg,image/jpg,image/png,image/webp,video/mp4,video/webm"
-                />
-
-                {defaultUploadProgress === null ? (
-                  <div 
-                    onClick={() => defaultFileInputRef.current && defaultFileInputRef.current.click()}
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 0', gap: '8px', cursor: 'pointer', border: '1px dashed var(--color-border-hover)', borderRadius: '6px', backgroundColor: '#ffffff' }}
-                  >
-                    <Upload size={24} style={{ color: 'var(--color-text-muted)' }} />
-                    <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--color-primary)' }}>Select fallback file</span>
-                  </div>
-                ) : typeof defaultUploadProgress === 'number' ? (
-                  <div style={{ padding: '12px 0', textAlign: 'center' }}>
-                    <RefreshCw size={20} style={{ animation: 'spin 1.5s linear infinite', color: 'var(--color-primary)', margin: '0 auto 8px auto' }} />
-                    <div style={{ fontSize: '11px' }}>Uploading file... {defaultUploadProgress}%</div>
-                  </div>
-                ) : (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: 600 }}>File Ready ({defaultFormData.mediaType})</span>
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        <button 
-                          type="button" 
-                          onClick={() => defaultFileInputRef.current && defaultFileInputRef.current.click()}
-                          className="btn btn-outline" 
-                          style={{ height: '22px', padding: '0 6px', fontSize: '9px' }}
-                        >
-                          Replace
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={() => handleRemoveSelectedMedia(true)}
-                          className="btn btn-outline" 
-                          style={{ height: '22px', padding: '0 6px', fontSize: '9px', color: 'var(--color-error)' }}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                    <div style={{ width: '100%', height: '100px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
-                      <img src={defaultFormData.mediaUrl} alt="Fallback Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                  </div>
-                )}
-                
-                {defaultUploadError && <div style={{ color: 'var(--color-error)', fontSize: '11px', marginTop: '6px' }}>{defaultUploadError}</div>}
-              </div>              
-            </div>
-            <div className="modal-footer">
-              <button onClick={() => setDefaultContentOpen(false)} className="btn btn-outline">Cancel</button>
-              <button onClick={handleSaveDefaultContent} className="btn btn-primary" disabled={defaultUploadProgress !== 'done'}>Save Fallback</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Deletion confirmation modal */}
-      {confirmDeleteTarget && (
-        <div className="modal-overlay">
-          <div className="modal-container size-sm" style={{ padding: '4px' }}>
-            <div className="modal-header" style={{ borderBottom: 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-error)' }}>
-                <AlertTriangle size={20} />
-                <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Delete Banner</h3>
-              </div>
-              <button onClick={() => setConfirmDeleteTarget(null)} className="modal-close-btn">
-                <X size={16} />
-              </button>
-            </div>
-            <div className="modal-body" style={{ padding: '0 24px 16px 24px' }}>
-              <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
-                Are you sure you want to permanently delete banner <strong>{confirmDeleteTarget.name}</strong> from the catalog library? 
-                This action cannot be undone.
-              </p>
-            </div>
-            <div className="modal-footer" style={{ borderTop: 'none', padding: '16px 24px' }}>
-              <button onClick={() => setConfirmDeleteTarget(null)} className="btn btn-secondary">Cancel</button>
-              <button onClick={handleDeleteConfirm} className="btn btn-danger">Delete</button>
             </div>
           </div>
         </div>
