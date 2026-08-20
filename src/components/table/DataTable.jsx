@@ -152,8 +152,16 @@ const DataTable = ({
             ) : (
               paginatedData.map((row) => {
                 const isSelected = selectedIds.has(row[keyField]);
+                const isInactive = row.status === 'Inactive';
                 return (
-                  <tr key={row[keyField]} style={{ backgroundColor: isSelected ? '#f8fafc' : 'transparent' }}>
+                  <tr 
+                    key={row[keyField]} 
+                    style={{ 
+                      backgroundColor: isSelected ? '#f8fafc' : isInactive ? '#fafafa' : 'transparent',
+                      opacity: isInactive ? 0.7 : 1,
+                      transition: 'opacity 0.15s ease, background-color 0.15s ease'
+                    }}
+                  >
                     <td style={{ padding: '0 var(--spacing-sm)' }}>
                       <button 
                         onClick={() => handleSelectRow(row[keyField])}
