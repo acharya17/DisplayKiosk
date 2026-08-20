@@ -13,7 +13,8 @@ const DataTable = ({
   keyField = 'id',
   searchQuery = '',
   searchField = 'name',
-  filters = {}
+  filters = {},
+  onRowClick
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -165,7 +166,11 @@ const DataTable = ({
                       </button>
                     </td>
                     {columns.map((col, idx) => (
-                      <td key={idx}>
+                      <td 
+                        key={idx}
+                        onClick={() => onRowClick && onRowClick(row)}
+                        style={{ cursor: onRowClick ? 'pointer' : 'default' }}
+                      >
                         {col.render ? col.render(row[col.field], row) : row[col.field]}
                       </td>
                     ))}

@@ -111,3 +111,44 @@ export const initialDefaultContent = {
   updatedAt: "2026-08-19T10:00:00Z"
 };
 
+export const initialPlaylists = [
+  {
+    id: "pl-1",
+    name: "Main Entrance Playlist",
+    description: "Primary promotional screens displayed at the lobby and entrance TVs.",
+    status: "Active",
+    createdAt: "2026-08-19T09:00:00Z",
+    updatedAt: "2026-08-19T11:00:00Z",
+    banners: [
+      {
+        bannerId: "bn-1",
+        displayOrder: 1,
+        scheduleType: "Continuous",
+        startDate: "2026-08-01",
+        startTime: "00:00",
+        endDate: "",
+        endTime: ""
+      },
+      {
+        bannerId: "bn-2",
+        displayOrder: 2,
+        scheduleType: "Scheduled",
+        startDate: "2026-11-01",
+        startTime: "00:00",
+        endDate: "2026-11-15",
+        endTime: "23:59"
+      },
+      {
+        bannerId: "bn-4",
+        displayOrder: 3,
+        scheduleType: "Continuous",
+        startDate: "2026-08-18",
+        startTime: "08:00",
+        endDate: "",
+        endTime: ""
+      }
+    ]
+  }
+];
+
+

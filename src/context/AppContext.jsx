@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext } from 'react';
-import { initialBusiness, initialBranches, initialBanners, initialDefaultContent } from '../data/mockData';
+import { initialBusiness, initialBranches, initialBanners, initialDefaultContent, initialPlaylists } from '../data/mockData';
 
 const AppContext = createContext();
 
@@ -12,6 +12,7 @@ export const AppProvider = ({ children }) => {
   const [branches, setBranches] = useState(initialBranches);
   const [banners, setBanners] = useState(initialBanners);
   const [defaultContent, setDefaultContent] = useState(initialDefaultContent);
+  const [playlists, setPlaylists] = useState(initialPlaylists);
   const [toasts, setToasts] = useState([]);
 
   // Toast helper
@@ -207,6 +208,127 @@ export const AppProvider = ({ children }) => {
     return true;
   };
 
+  // Playlists Actions
+  const addPlaylist = (playlistData) => {
+    const newId = `pl-${Date.now()}`;
+    const newPlaylist = {
+      ...playlistData,
+      id: newId,
+      banners: playlistData.banners || [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    setPlaylists(prev => [...prev, newPlaylist]);
+    showToast('Playlist created successfully', 'success');
+    return true;
+  };
+
+  const editPlaylist = (id, updatedFields) => {
+    setPlaylists(prev => prev.map(pl => pl.id === id ? {
+      ...pl,
+      ...updatedFields,
+      updatedAt: new Date().toISOString()
+    } : pl));
+    showToast('Playlist updated successfully', 'success');
+    return true;
+  };
+
+  const deletePlaylist = (id) => {
+    setPlaylists(prev => prev.filter(pl => pl.id !== id));
+    showToast('Playlist deleted successfully', 'success');
+    return true;
+  };
+
+  const setPlaylistStatus = (id, newStatus) => {
+    setPlaylists(prev => prev.map(pl => pl.id === id ? {
+      ...pl,
+      status: newStatus,
+      updatedAt: new Date().toISOString()
+    } : pl));
+    showToast(`Playlist ${newStatus === 'Active' ? 'activated' : 'deactivated'} successfully`, 'success');
+  };
+
+  const addBannerToPlaylist = (playlistId, bannerId) => {
+    let duplicate = false;
+    setPlaylists(prev => prev.map(pl => {
+      if (pl.id !== playlistId) return pl;
+      if (pl.banners.some(b => b.bannerId === bannerId)) {
+        duplicate = true;
+        return pl;
+      }
+      const newOrder = pl.banners.length + 1;
+      const newBanner = {
+        bannerId,
+        displayOrder: newOrder,
+        scheduleType: 'Continuous',
+        startDate: new Date().toISOString().split('T')[0],
+        startTime: '00:00',
+        endDate: '',
+        endTime: ''
+      };
+      return {
+        ...pl,
+        banners: [...pl.banners, newBanner],
+        updatedAt: new Date().toISOString()
+      };
+    }));
+
+    if (duplicate) {
+      showToast('Banner already exists in playlist', 'error');
+      return false;
+    }
+    showToast('Banner added to playlist successfully', 'success');
+    return true;
+  };
+
+  const removeBannerFromPlaylist = (playlistId, bannerId) => {
+    setPlaylists(prev => prev.map(pl => {
+      if (pl.id !== playlistId) return pl;
+      const filtered = pl.banners.filter(b => b.bannerId !== bannerId);
+      const reindexed = filtered.map((item, idx) => ({
+        ...item,
+        displayOrder: idx + 1
+      }));
+      return {
+        ...pl,
+        banners: reindexed,
+        updatedAt: new Date().toISOString()
+      };
+    }));
+    showToast('Banner removed from playlist successfully', 'success');
+    return true;
+  };
+
+  const reorderPlaylistBanners = (playlistId, reorderedBanners) => {
+    setPlaylists(prev => prev.map(pl => {
+      if (pl.id !== playlistId) return pl;
+      return {
+        ...pl,
+        banners: reorderedBanners,
+        updatedAt: new Date().toISOString()
+      };
+    }));
+    showToast('Banner order updated successfully', 'success');
+    return true;
+  };
+
+  const updatePlaylistBannerSchedule = (playlistId, bannerId, scheduleDetails) => {
+    setPlaylists(prev => prev.map(pl => {
+      if (pl.id !== playlistId) return pl;
+      const updatedBanners = pl.banners.map(b => b.bannerId === bannerId ? {
+        ...b,
+        ...scheduleDetails
+      } : b);
+      return {
+        ...pl,
+        banners: updatedBanners,
+        updatedAt: new Date().toISOString()
+      };
+    }));
+    showToast('Schedule updated successfully', 'success');
+    return true;
+  };
+
   return (
     <AppContext.Provider value={{
       isAuthenticated,
@@ -214,6 +336,7 @@ export const AppProvider = ({ children }) => {
       branches,
       banners,
       defaultContent,
+      playlists,
       toasts,
       showToast,
       login,
@@ -226,7 +349,15 @@ export const AppProvider = ({ children }) => {
       editBanner,
       deleteBanner,
       setBannerStatus,
-      updateDefaultContent
+      updateDefaultContent,
+      addPlaylist,
+      editPlaylist,
+      deletePlaylist,
+      setPlaylistStatus,
+      addBannerToPlaylist,
+      removeBannerFromPlaylist,
+      reorderPlaylistBanners,
+      updatePlaylistBannerSchedule
     }}>
       {children}
     </AppContext.Provider>
