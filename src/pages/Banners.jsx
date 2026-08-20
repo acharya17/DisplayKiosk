@@ -347,7 +347,7 @@ const Banners = () => {
                 <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Default / Fallback Loop content</span>
                 <h3 style={{ fontSize: '15px', fontWeight: 600, marginTop: '2px' }}>{defaultContent.name}</h3>
                 <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-                  Plays when no scheduled playlists are active. Duration: <strong>{defaultContent.duration}s</strong> • Format: <strong>{defaultContent.mediaType}</strong>
+                  Plays when no scheduled playlists are active. Format: <strong>{defaultContent.mediaType}</strong>
                 </p>
               </div>
             </div>
@@ -697,18 +697,7 @@ const Banners = () => {
                 )}
                 
                 {defaultUploadError && <div style={{ color: 'var(--color-error)', fontSize: '11px', marginTop: '6px' }}>{defaultUploadError}</div>}
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Fallback Duration (Seconds)</label>
-                <input 
-                  type="number" 
-                  value={defaultFormData.duration} 
-                  onChange={(e) => setDefaultFormData(prev => ({ ...prev, duration: parseInt(e.target.value) || 5 }))} 
-                  className="form-control"
-                  min="1"
-                />
-              </div>
+              </div>              
             </div>
             <div className="modal-footer">
               <button onClick={() => setDefaultContentOpen(false)} className="btn btn-outline">Cancel</button>
