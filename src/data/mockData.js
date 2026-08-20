@@ -151,4 +151,59 @@ export const initialPlaylists = [
   }
 ];
 
+export const initialTVs = [
+  {
+    id: "tv-1",
+    name: "Lobby Entrance Display",
+    tvId: "TV-UDUPI-01",
+    branchId: "br-1", // Udupi
+    groupId: "gp-1",  // Entrance TVs Group
+    playlistId: "pl-1",
+    status: "Active",
+    connectionStatus: "Online",
+    lastSeen: "2026-08-20T11:42:00Z",
+    createdAt: "2026-08-19T08:00:00Z",
+    updatedAt: "2026-08-20T10:00:00Z"
+  },
+  {
+    id: "tv-2",
+    name: "Mangalore Counter TV",
+    tvId: "TV-MANGALORE-01",
+    branchId: "br-2", // Mangalore
+    groupId: "gp-1",  // Entrance TVs Group
+    playlistId: "", // unassigned, inherits group playlist
+    status: "Active",
+    connectionStatus: "Online",
+    lastSeen: "2026-08-20T11:45:00Z",
+    createdAt: "2026-08-19T08:30:00Z",
+    updatedAt: "2026-08-19T08:30:00Z"
+  },
+  {
+    id: "tv-3",
+    name: "Manipal Menu Board",
+    tvId: "TV-MANIPAL-01",
+    branchId: "br-3", // Manipal
+    groupId: "",
+    playlistId: "",
+    status: "Active",
+    connectionStatus: "Offline",
+    lastSeen: "2026-08-19T22:15:00Z",
+    createdAt: "2026-08-20T09:00:00Z",
+    updatedAt: "2026-08-20T09:00:00Z"
+  }
+];
+
+export const initialGroups = [
+  {
+    id: "gp-1",
+    name: "Entrance TVs Group",
+    description: "Centrally controlled displays located at lobby entrances across branch regions.",
+    status: "Active",
+    playlistId: "pl-1",
+    createdAt: "2026-08-19T12:00:00Z",
+    updatedAt: "2026-08-20T10:00:00Z"
+  }
+];
+
+
 

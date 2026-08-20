@@ -8,6 +8,8 @@ import BusinessSettings from './pages/BusinessSettings';
 import Branches from './pages/Branches';
 import Banners from './pages/Banners';
 import Playlists from './pages/Playlists';
+import Devices from './pages/Devices';
+import Groups from './pages/Groups';
 import PlaceholderPage from './pages/PlaceholderPage';
 
 // Import CSS Styles
@@ -32,8 +34,8 @@ function App() {
             <Route path="banners" element={<Banners />} />
             <Route path="playlists" element={<Playlists />} />
             <Route path="schedules" element={<PlaceholderPage />} />
-            <Route path="devices" element={<PlaceholderPage />} />
-            <Route path="groups" element={<PlaceholderPage />} />
+            <Route path="devices" element={<Devices />} />
+            <Route path="groups" element={<Groups />} />
             <Route path="display-settings" element={<PlaceholderPage />} />
             
             {/* Fallback inside portal */}
