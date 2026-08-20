@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext } from 'react';
-import { initialBusiness, initialBranches } from '../data/mockData';
+import { initialBusiness, initialBranches, initialBanners, initialDefaultContent } from '../data/mockData';
 
 const AppContext = createContext();
 
@@ -10,6 +10,8 @@ export const AppProvider = ({ children }) => {
   
   const [business, setBusiness] = useState(initialBusiness);
   const [branches, setBranches] = useState(initialBranches);
+  const [banners, setBanners] = useState(initialBanners);
+  const [defaultContent, setDefaultContent] = useState(initialDefaultContent);
   const [toasts, setToasts] = useState([]);
 
   // Toast helper
@@ -120,11 +122,98 @@ export const AppProvider = ({ children }) => {
     showToast(`Branch ${newStatus === 'Active' ? 'activated' : 'deactivated'} successfully`, 'success');
   };
 
+  // Banner Actions
+  const addBanner = (newBanner) => {
+    if (!newBanner.name?.trim()) {
+      showToast('Banner Name is required', 'error');
+      return false;
+    }
+    if (!newBanner.mediaUrl?.trim()) {
+      showToast('Media File / URL is required', 'error');
+      return false;
+    }
+    if (newBanner.mediaType === 'Image' && (!newBanner.duration || newBanner.duration <= 0)) {
+      showToast('Display Duration is required for Image banners and must be > 0', 'error');
+      return false;
+    }
+
+    const bannerRecord = {
+      ...newBanner,
+      id: `bn-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    setBanners(prev => [...prev, bannerRecord]);
+    showToast('Banner created successfully', 'success');
+    return true;
+  };
+
+  const editBanner = (bannerId, updatedFields) => {
+    if (!updatedFields.name?.trim()) {
+      showToast('Banner Name is required', 'error');
+      return false;
+    }
+    if (!updatedFields.mediaUrl?.trim()) {
+      showToast('Media File / URL is required', 'error');
+      return false;
+    }
+    if (updatedFields.mediaType === 'Image' && (!updatedFields.duration || updatedFields.duration <= 0)) {
+      showToast('Display Duration is required for Image banners and must be > 0', 'error');
+      return false;
+    }
+
+    setBanners(prev => prev.map(b => b.id === bannerId ? { 
+      ...b, 
+      ...updatedFields, 
+      id: bannerId, 
+      updatedAt: new Date().toISOString() 
+    } : b));
+    showToast('Banner updated successfully', 'success');
+    return true;
+  };
+
+  const deleteBanner = (bannerId) => {
+    setBanners(prev => prev.filter(b => b.id !== bannerId));
+    showToast('Banner deleted successfully', 'success');
+  };
+
+  const setBannerStatus = (bannerId, newStatus) => {
+    setBanners(prev => prev.map(b => b.id === bannerId ? { 
+      ...b, 
+      status: newStatus,
+      updatedAt: new Date().toISOString() 
+    } : b));
+    showToast(`Banner ${newStatus === 'Active' ? 'activated' : 'deactivated'} successfully`, 'success');
+  };
+
+  // Fallback Content Actions
+  const updateDefaultContent = (updatedFields) => {
+    if (!updatedFields.name?.trim()) {
+      showToast('Default Banner Name is required', 'error');
+      return false;
+    }
+    if (!updatedFields.mediaUrl?.trim()) {
+      showToast('Default Media URL is required', 'error');
+      return false;
+    }
+    
+    setDefaultContent({
+      ...defaultContent,
+      ...updatedFields,
+      updatedAt: new Date().toISOString()
+    });
+    showToast('Default content updated successfully', 'success');
+    return true;
+  };
+
   return (
     <AppContext.Provider value={{
       isAuthenticated,
       business,
       branches,
+      banners,
+      defaultContent,
       toasts,
       showToast,
       login,
@@ -132,7 +221,12 @@ export const AppProvider = ({ children }) => {
       updateBusiness,
       addBranch,
       editBranch,
-      setBranchStatus
+      setBranchStatus,
+      addBanner,
+      editBanner,
+      deleteBanner,
+      setBannerStatus,
+      updateDefaultContent
     }}>
       {children}
     </AppContext.Provider>

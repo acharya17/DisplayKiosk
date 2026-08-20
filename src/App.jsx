@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import BusinessSettings from './pages/BusinessSettings';
 import Branches from './pages/Branches';
+import Banners from './pages/Banners';
 import PlaceholderPage from './pages/PlaceholderPage';
 
 // Import CSS Styles
@@ -27,7 +28,7 @@ function App() {
             <Route path="branches" element={<Branches />} />
             
             {/* Future Phase Placeholders */}
-            <Route path="banners" element={<PlaceholderPage />} />
+            <Route path="banners" element={<Banners />} />
             <Route path="playlists" element={<PlaceholderPage />} />
             <Route path="schedules" element={<PlaceholderPage />} />
             <Route path="devices" element={<PlaceholderPage />} />

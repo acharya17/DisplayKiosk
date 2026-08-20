@@ -57,3 +57,57 @@ export const timeZones = [
   "GMT-5:00",
   "GMT-8:00"
 ];
+
+export const initialBanners = [
+  {
+    id: "bn-1",
+    name: "Weekday Lunch Combo",
+    mediaUrl: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=300",
+    mediaType: "Image",
+    duration: 10,
+    status: "Active",
+    createdAt: "2026-08-15T10:00:00Z",
+    updatedAt: "2026-08-15T10:00:00Z"
+  },
+  {
+    id: "bn-2",
+    name: "Diwali Special Offer",
+    mediaUrl: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&q=80&w=300",
+    mediaType: "Image",
+    duration: 15,
+    status: "Active",
+    createdAt: "2026-08-16T12:00:00Z",
+    updatedAt: "2026-08-18T14:30:00Z"
+  },
+  {
+    id: "bn-3",
+    name: "Weekend Family Feast Promo",
+    mediaUrl: "https://www.w3schools.com/html/mov_bbb.mp4", // Mock video URL
+    mediaType: "Video",
+    duration: 10, // Video duration is auto-calculated or matches video length
+    status: "Active",
+    createdAt: "2026-08-17T09:00:00Z",
+    updatedAt: "2026-08-17T09:00:00Z"
+  },
+  {
+    id: "bn-4",
+    name: "New Branch Launch Promo",
+    mediaUrl: "https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&q=80&w=300",
+    mediaType: "Image",
+    duration: 12,
+    status: "Inactive",
+    createdAt: "2026-08-18T08:00:00Z",
+    updatedAt: "2026-08-18T08:00:00Z"
+  }
+];
+
+export const initialDefaultContent = {
+  id: "df-1",
+  name: "Spice Junction Welcome Loop",
+  mediaUrl: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&q=80&w=600",
+  mediaType: "Image",
+  duration: 8,
+  status: "Active",
+  updatedAt: "2026-08-19T10:00:00Z"
+};
+

@@ -18,7 +18,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
       section: "TV Display",
       items: [
         { name: "Overview", path: "/overview", icon: LayoutDashboard },
-        { name: "Banners", path: "/banners", icon: Image, upcoming: true },
+        { name: "Banners", path: "/banners", icon: Image },
         { name: "Playlists", path: "/playlists", icon: ListMusic, upcoming: true },
         { name: "Schedules", path: "/schedules", icon: Calendar, upcoming: true },
         { name: "TVs / Devices", path: "/devices", icon: Tv, upcoming: true },
