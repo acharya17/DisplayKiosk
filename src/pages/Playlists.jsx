@@ -19,6 +19,7 @@ const Playlists = () => {
   } = useApp();
 
   // Navigation State inside playlists workspace
+  const [viewState, setViewState] = useState('list'); // 'list' | 'add' | 'edit' | 'detail'
   const [selectedPlaylistId, setSelectedPlaylistId] = useState(null);
 
   // Search & Filter State
@@ -31,8 +32,6 @@ const Playlists = () => {
   const [isError, setIsError] = useState(false);
 
   // Modal / Dialog Open States
-  const [formOpen, setFormOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState(null);
   const [confirmDeleteTarget, setConfirmDeleteTarget] = useState(null);
   
   // Playlist Details sub-dialogs
@@ -54,9 +53,6 @@ const Playlists = () => {
   const [bannerSearchQuery, setBannerSearchQuery] = useState('');
   const [selectedBannerIds, setSelectedBannerIds] = useState(new Set());
 
-  // Banner Drag & Drop indices state
-  const [draggedIndex, setDraggedIndex] = useState(null);
-
   // Banner Schedule Form State
   const [scheduleForm, setScheduleForm] = useState({
     startDate: '',
@@ -66,7 +62,7 @@ const Playlists = () => {
     noEndDate: true
   });
 
-  // Simulated system current date context
+  // Simulated current date
   const mockCurrentDate = new Date('2026-08-20T12:00:00Z');
 
   useEffect(() => {
@@ -98,50 +94,40 @@ const Playlists = () => {
       if (mockCurrentDate > endDateTime) {
         return 'Expired';
       }
-      return 'Running';
     }
 
-    return 'No End Date';
+    return 'Running';
   };
 
-  const getScheduleBadgeClass = (status) => {
+  const getStatusBadgeClass = (status) => {
     switch (status) {
-      case 'Running':
-      case 'No End Date':
-        return 'badge-active';
-      case 'Upcoming':
-        return 'badge-upcoming';
-      case 'Expired':
-      case 'Inactive Banner':
-        return 'badge-inactive';
-      default:
-        return 'badge-inactive';
+      case 'Running': return 'badge-active';
+      case 'Upcoming': return 'badge-upcoming';
+      case 'Expired': return 'badge-inactive';
+      default: return 'badge-inactive';
     }
   };
 
   const handleOpenAdd = () => {
-    setEditTarget(null);
     setFormData(initialPlaylistForm);
     setErrors({});
-    setFormOpen(true);
+    setViewState('add');
   };
 
   const handleOpenEdit = (playlist) => {
-    setEditTarget(playlist.id);
     setFormData({ ...playlist });
     setErrors({});
-    setFormOpen(true);
+    setViewState('edit');
+  };
+
+  const handleRowClick = (playlist) => {
+    setSelectedPlaylistId(playlist.id);
+    setViewState('detail');
   };
 
   const validatePlaylist = () => {
     const tempErrors = {};
     if (!formData.name?.trim()) tempErrors.name = 'Playlist Name is required';
-    
-    // Rule 23: At least one banner required before activation
-    if (formData.status === 'Active' && (!formData.banners || formData.banners.length === 0)) {
-      tempErrors.status = 'You must add at least one banner before activating the playlist';
-    }
-
     setErrors(tempErrors);
     return Object.keys(tempErrors).length === 0;
   };
@@ -149,148 +135,156 @@ const Playlists = () => {
   const handleSavePlaylist = () => {
     if (!validatePlaylist()) return;
 
-    if (editTarget) {
-      const success = editPlaylist(editTarget, formData);
-      if (success) setFormOpen(false);
+    if (viewState === 'edit') {
+      const success = editPlaylist(formData.id, formData);
+      if (success) setViewState('list');
     } else {
       const success = addPlaylist(formData);
-      if (success) setFormOpen(false);
+      if (success) setViewState('list');
     }
   };
 
   const handleDeleteConfirm = () => {
     if (confirmDeleteTarget) {
       deletePlaylist(confirmDeleteTarget.id);
-      if (selectedPlaylistId === confirmDeleteTarget.id) {
-        setSelectedPlaylistId(null);
-      }
       setConfirmDeleteTarget(null);
+      if (selectedPlaylistId === confirmDeleteTarget.id) {
+        setViewState('list');
+      }
     }
   };
 
-  // Drag and Drop Sequence swapping in form
-  const handleDragStartForm = (e, index) => {
-    setDraggedIndex(index);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', index);
+  // Banner Ordering operations inside Form
+  const moveBannerItem = (index, direction) => {
+    const nextList = [...formData.banners];
+    const targetIdx = index + direction;
+    if (targetIdx < 0 || targetIdx >= nextList.length) return;
+
+    // Swap elements
+    const temp = nextList[index];
+    nextList[index] = nextList[targetIdx];
+    nextList[targetIdx] = temp;
+
+    // Swap orders
+    const orderTemp = nextList[index].order;
+    nextList[index].order = nextList[targetIdx].order;
+    nextList[targetIdx].order = orderTemp;
+
+    setFormData(prev => ({ ...prev, banners: nextList }));
   };
 
-  const handleDragOverForm = (e) => {
-    e.preventDefault();
-  };
-
-  const handleDropForm = (e, targetIndex) => {
-    e.preventDefault();
-    if (draggedIndex === null || draggedIndex === targetIndex) return;
-
-    const playlistBannersList = [...formData.banners];
-    const draggedItem = playlistBannersList[draggedIndex];
-
-    playlistBannersList.splice(draggedIndex, 1);
-    playlistBannersList.splice(targetIndex, 0, draggedItem);
-
-    const reindexed = playlistBannersList.map((item, idx) => ({
+  const removeBannerFromForm = (index) => {
+    const nextList = [...formData.banners];
+    nextList.splice(index, 1);
+    
+    // Recalculate sequence orders
+    const recalculated = nextList.map((item, idx) => ({
       ...item,
-      displayOrder: idx + 1
+      order: idx + 1
     }));
 
-    setFormData(prev => ({
-      ...prev,
-      banners: reindexed
-    }));
-
-    setDraggedIndex(null);
+    setFormData(prev => ({ ...prev, banners: recalculated }));
   };
 
-  const handleOpenScheduleEdit = (bannerInPlaylist) => {
-    setSelectedBannerForSchedule(bannerInPlaylist.bannerId);
+  // Banner Selection dialog helpers
+  const handleOpenBannerPicker = () => {
+    const currentIds = new Set(formData.banners.map(b => b.bannerId));
+    setSelectedBannerIds(currentIds);
+    setBannerSearchQuery('');
+    setBannerPickerOpen(true);
+  };
+
+  const handleApplyBannerSelection = () => {
+    const nextBanners = [];
+    let currentIdx = 1;
+
+    // Preserve existing banner configuration data if still selected
+    formData.banners.forEach(b => {
+      if (selectedBannerIds.has(b.bannerId)) {
+        nextBanners.push({
+          ...b,
+          order: currentIdx++
+        });
+      }
+    });
+
+    // Append newly selected banners
+    selectedBannerIds.forEach(id => {
+      const exists = nextBanners.some(b => b.bannerId === id);
+      if (!exists) {
+        const fullBanner = banners.find(b => b.id === id);
+        nextBanners.push({
+          bannerId: id,
+          order: currentIdx++,
+          scheduleType: 'Always',
+          startDate: new Date().toISOString().split('T')[0],
+          startTime: '00:00',
+          endDate: '',
+          endTime: '23:59',
+          noEndDate: true
+        });
+      }
+    });
+
+    setFormData(prev => ({ ...prev, banners: nextBanners }));
+    setBannerPickerOpen(false);
+  };
+
+  const handleTogglePickerSelection = (id) => {
+    setSelectedBannerIds(prev => {
+      const nextSet = new Set(prev);
+      if (nextSet.has(id)) {
+        nextSet.delete(id);
+      } else {
+        nextSet.add(id);
+      }
+      return nextSet;
+    });
+  };
+
+  // Schedule Popup configuration
+  const handleOpenScheduleEditor = (bannerConfig) => {
+    setSelectedBannerForSchedule(bannerConfig);
     setScheduleForm({
-      startDate: bannerInPlaylist.startDate,
-      startTime: bannerInPlaylist.startTime || '00:00',
-      endDate: bannerInPlaylist.endDate || '',
-      endTime: bannerInPlaylist.endTime || '23:59',
-      noEndDate: bannerInPlaylist.scheduleType === 'Continuous'
+      startDate: bannerConfig.startDate || new Date().toISOString().split('T')[0],
+      startTime: bannerConfig.startTime || '00:00',
+      endDate: bannerConfig.endDate || '',
+      endTime: bannerConfig.endTime || '23:59',
+      noEndDate: bannerConfig.scheduleType === 'Always' || bannerConfig.noEndDate
     });
     setScheduleModalOpen(true);
   };
 
-  const handleSaveSchedule = () => {
-    const updatedDetails = {
-      scheduleType: scheduleForm.noEndDate ? 'Continuous' : 'Scheduled',
-      startDate: scheduleForm.startDate,
-      startTime: scheduleForm.startTime,
-      endDate: scheduleForm.noEndDate ? '' : scheduleForm.endDate,
-      endTime: scheduleForm.noEndDate ? '' : scheduleForm.endTime
-    };
+  const handleApplyScheduleConfig = () => {
+    if (!selectedBannerForSchedule) return;
 
-    setFormData(prev => {
-      const updatedBanners = prev.banners.map(b => b.bannerId === selectedBannerForSchedule ? {
-        ...b,
-        ...updatedDetails
-      } : b);
-      return { ...prev, banners: updatedBanners };
-    });
-
-    setScheduleModalOpen(false);
-  };
-
-  const handleToggleBannerSelection = (bannerId) => {
-    setSelectedBannerIds(prev => {
-      const next = new Set(prev);
-      if (next.has(bannerId)) {
-        next.delete(bannerId);
-      } else {
-        next.add(bannerId);
+    const nextList = formData.banners.map(b => {
+      if (b.bannerId === selectedBannerForSchedule.bannerId) {
+        return {
+          ...b,
+          scheduleType: scheduleForm.noEndDate ? 'Always' : 'Scheduled',
+          startDate: scheduleForm.startDate,
+          startTime: scheduleForm.startTime,
+          endDate: scheduleForm.noEndDate ? '' : scheduleForm.endDate,
+          endTime: scheduleForm.noEndDate ? '' : scheduleForm.endTime,
+          noEndDate: scheduleForm.noEndDate
+        };
       }
-      return next;
-    });
-  };
-
-  const handleAddSelectedBanners = () => {
-    if (selectedBannerIds.size === 0) return;
-    
-    setFormData(prev => {
-      const existing = [...prev.banners];
-      selectedBannerIds.forEach(id => {
-        if (!existing.some(item => item.bannerId === id)) {
-          const newOrder = existing.length + 1;
-          existing.push({
-            bannerId: id,
-            displayOrder: newOrder,
-            scheduleType: 'Continuous',
-            startDate: new Date().toISOString().split('T')[0],
-            startTime: '00:00',
-            endDate: '',
-            endTime: ''
-          });
-        }
-      });
-      return { ...prev, banners: existing };
+      return b;
     });
 
-    setBannerPickerOpen(false);
-    setSelectedBannerIds(new Set());
+    setFormData(prev => ({ ...prev, banners: nextList }));
+    setScheduleModalOpen(false);
+    setSelectedBannerForSchedule(null);
   };
 
-  const handleRemoveBannerFromForm = (bannerId) => {
-    setFormData(prev => {
-      const filtered = prev.banners.filter(b => b.bannerId !== bannerId);
-      const reindexed = filtered.map((item, idx) => ({
-        ...item,
-        displayOrder: idx + 1
-      }));
-      return { ...prev, banners: reindexed };
-    });
-  };
-
-  const selectedPlaylist = playlists.find(p => p.id === selectedPlaylistId);
-
-  // Columns for main playlists grid
+  // Columns for data list view
   const columns = [
     { field: 'name', header: 'Playlist Name', sortable: true },
+    { field: 'description', header: 'Description' },
     { 
       field: 'banners', 
-      header: 'Banners Count', 
+      header: 'Banners Size', 
       render: (val) => `${val ? val.length : 0} items` 
     },
     { 
@@ -302,41 +296,43 @@ const Playlists = () => {
           {val}
         </span>
       )
-    },
-    { 
-      field: 'updatedAt', 
-      header: 'Last Updated', 
-      render: (val) => new Date(val).toLocaleDateString() 
     }
   ];
 
-  // Filters calculation
-  const filteredPlaylists = playlists.filter(pl => {
-    if (searchQuery && !pl.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    if (activeFilters.status && pl.status !== activeFilters.status) return false;
-    
-    if (activeFilters.scheduleStatus) {
-      const hasMatch = pl.banners.some(b => getBannerScheduleStatus(b) === activeFilters.scheduleStatus);
-      if (!hasMatch) return false;
-    }
+  // Filtering calculation
+  const filteredPlaylists = playlists.filter(p => {
+    if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (activeFilters.status && p.status !== activeFilters.status) return false;
     return true;
   });
 
-  const activeFiltersCount = Object.values(activeFilters).filter(Boolean).length;
+  const currentSelectedPlaylist = playlists.find(p => p.id === selectedPlaylistId);
 
   return (
     <div>
-      {/* Breadcrumb */}
+      {/* Breadcrumb path navigation */}
       <div className="breadcrumb">
         <span>TV Display</span>
         <ChevronRight size={12} className="breadcrumb-separator" />
-        <span className="breadcrumb-item active" style={{ cursor: selectedPlaylistId ? 'pointer' : 'default' }} onClick={() => setSelectedPlaylistId(null)}>
+        <span className="breadcrumb-item active" style={{ cursor: viewState !== 'list' ? 'pointer' : 'default' }} onClick={() => setViewState('list')}>
           Playlists
         </span>
-        {selectedPlaylist && (
+        {viewState === 'add' && (
           <>
             <ChevronRight size={12} className="breadcrumb-separator" />
-            <span className="breadcrumb-item active">{selectedPlaylist.name}</span>
+            <span className="breadcrumb-item active">Add Playlist</span>
+          </>
+        )}
+        {viewState === 'edit' && (
+          <>
+            <ChevronRight size={12} className="breadcrumb-separator" />
+            <span className="breadcrumb-item active">Edit Playlist</span>
+          </>
+        )}
+        {viewState === 'detail' && currentSelectedPlaylist && (
+          <>
+            <ChevronRight size={12} className="breadcrumb-separator" />
+            <span className="breadcrumb-item active">{currentSelectedPlaylist.name}</span>
           </>
         )}
       </div>
@@ -344,12 +340,34 @@ const Playlists = () => {
       {/* Page Header */}
       <div className="page-header">
         <div className="page-title-group">
-          <h1>{selectedPlaylist ? selectedPlaylist.name : 'Playlists'}</h1>
-          <p>{selectedPlaylist ? selectedPlaylist.description : 'Group multiple image/video banners into playlists and schedule active loops.'}</p>
+          {viewState === 'list' && (
+            <>
+              <h1>Playlists</h1>
+              <p>Organize multiple creative banner assets into scheduled digital loops.</p>
+            </>
+          )}
+          {viewState === 'add' && (
+            <>
+              <h1>Create Playlist</h1>
+              <p>Configure sequence layout loops.</p>
+            </>
+          )}
+          {viewState === 'edit' && (
+            <>
+              <h1>Edit Playlist</h1>
+              <p>Configure loops sequence order and schedules.</p>
+            </>
+          )}
+          {viewState === 'detail' && currentSelectedPlaylist && (
+            <>
+              <h1>{currentSelectedPlaylist.name}</h1>
+              <p>Inspect active display loops schedules and orders.</p>
+            </>
+          )}
         </div>
-        
+
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {/* Dev Sim State Console */}
+          {/* Dev Sim Console Controls */}
           <div style={{ 
             display: 'flex', 
             gap: '4px', 
@@ -384,21 +402,25 @@ const Playlists = () => {
           </div>
 
           {!isError && (
-            selectedPlaylist ? (
+            viewState === 'list' ? (
+              <button className="btn btn-primary" onClick={handleOpenAdd}>
+                <Plus size={16} />
+                <span>Add Playlist</span>
+              </button>
+            ) : viewState === 'detail' ? (
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button className="btn btn-secondary" onClick={() => setSelectedPlaylistId(null)}>
+                <button className="btn btn-secondary" onClick={() => setViewState('list')}>
                   <ChevronLeft size={16} />
                   <span>Back to Playlists</span>
                 </button>
-                <button className="btn btn-primary" onClick={() => handleOpenEdit(selectedPlaylist)}>
-                  <Edit size={16} />
+                <button className="btn btn-primary" onClick={() => handleOpenEdit(currentSelectedPlaylist)}>
+                  <Edit size={15} />
                   <span>Edit Playlist</span>
                 </button>
               </div>
             ) : (
-              <button className="btn btn-primary" onClick={handleOpenAdd}>
-                <Plus size={16} />
-                <span>Add Playlist</span>
+              <button className="btn btn-secondary" onClick={() => setViewState('list')}>
+                Cancel
               </button>
             )
           )}
@@ -409,9 +431,9 @@ const Playlists = () => {
       {isError ? (
         <div className="card" style={{ textAlign: 'center', padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', border: '1px solid var(--color-error)', maxWidth: '480px', margin: '24px auto' }}>
           <AlertTriangle size={36} style={{ color: 'var(--color-error)' }} />
-          <h3>Unable to load playlist catalogs</h3>
+          <h3>Unable to fetch playlists</h3>
           <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px' }}>
-            We encountered a query sync timeout error.
+            We encountered a connection timeout error.
           </p>
           <button className="btn btn-primary" onClick={() => { setIsError(false); triggerSimulatedLoad(); }}>
             Try Again
@@ -423,23 +445,22 @@ const Playlists = () => {
           <div style={{ height: '44px', backgroundColor: '#ffffff', border: '1px solid var(--color-border)', borderRadius: '6px', width: '100%', animation: 'pulse 1.5s infinite', opacity: 0.8 }}></div>
           <div style={{ height: '44px', backgroundColor: '#ffffff', border: '1px solid var(--color-border)', borderRadius: '6px', width: '100%', animation: 'pulse 1.5s infinite', opacity: 0.6 }}></div>
         </div>
-      ) : !selectedPlaylist ? (
-        /* PLAYLISTS LIST WORKSPACE */
+      ) : viewState === 'list' ? (
+        /* LISTING VIEW */
         playlists.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '56px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', maxWidth: '480px', margin: '32px auto' }}>
             <ListMusic size={36} style={{ color: 'var(--color-text-muted)' }} />
-            <h3>No playlists configured yet</h3>
+            <h3>No playlists configured</h3>
             <p style={{ color: 'var(--color-text-secondary)', fontSize: '13px', maxWidth: '340px' }}>
-              Playlists allow grouping promotional graphics and scheduling sequences for display TVs.
+              Create loop playlists and define schedule sequences to map your TV screens.
             </p>
             <button className="btn btn-primary" onClick={handleOpenAdd}>
               <Plus size={16} />
-              <span>Create First Playlist</span>
+              <span>Create Playlist</span>
             </button>
           </div>
         ) : (
           <>
-            {/* Search Toolbar */}
             <div className="toolbar">
               <div className="toolbar-left">
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flex: 1, maxWidth: '320px' }}>
@@ -460,7 +481,7 @@ const Playlists = () => {
                 </div>
                 <button onClick={() => setFilterOpen(true)} className="btn btn-outline" style={{ height: '36px' }}>
                   <Filter size={15} />
-                  <span>Filter{activeFiltersCount > 0 ? ` • ${activeFiltersCount}` : ''}</span>
+                  <span>Filter</span>
                 </button>
               </div>
             </div>
@@ -474,90 +495,86 @@ const Playlists = () => {
               searchField="name"
               filters={activeFilters}
               keyField="id"
-              onRowClick={(playlist) => setSelectedPlaylistId(playlist.id)}
+              onRowClick={handleRowClick}
             />
           </>
         )
-      ) : (
-        /* PLAYLIST DETAIL WORKSPACE (READ-ONLY VIEW) */
+      ) : viewState === 'detail' && currentSelectedPlaylist ? (
+        /* DETAIL VIEW SUB-PAGE */
         <div>
-          {/* Info Card Banner */}
+          {/* Details Overview Banner */}
           <div className="card" style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span className={`badge badge-${selectedPlaylist.status.toLowerCase()}`}>{selectedPlaylist.status}</span>
-                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Last updated: {new Date(selectedPlaylist.updatedAt).toLocaleDateString()}</span>
+                <span className={`badge badge-${currentSelectedPlaylist.status.toLowerCase()}`}>{currentSelectedPlaylist.status}</span>
+                <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Last updated: {new Date(currentSelectedPlaylist.updatedAt || new Date()).toLocaleDateString()}</span>
               </div>
-              <h2 style={{ fontSize: '18px', fontWeight: 600, marginTop: '8px' }}>{selectedPlaylist.name}</h2>
-              <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>{selectedPlaylist.description || 'No description provided.'}</p>
+              <h2 style={{ fontSize: '18px', fontWeight: 600, marginTop: '8px' }}>{currentSelectedPlaylist.name}</h2>
+              <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>{currentSelectedPlaylist.description || 'No description provided.'}</p>
             </div>
-            <button className="btn btn-outline" onClick={() => handleOpenEdit(selectedPlaylist)}>
-              <Edit size={15} />
-              <span>Edit Details & Banners</span>
-            </button>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'right' }}>
+              <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Banners Size</span>
+              <span style={{ fontWeight: 600, fontSize: '16px', color: 'var(--color-primary)' }}>
+                {currentSelectedPlaylist.banners ? currentSelectedPlaylist.banners.length : 0} items
+              </span>
+            </div>
           </div>
 
-          <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Playlist Sequence & Schedules</h3>
-
-          {selectedPlaylist.banners.length === 0 ? (
-            /* Empty Playlist Banners visual */
+          <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Configured Display Loops Sequence</h3>
+          
+          {(!currentSelectedPlaylist.banners || currentSelectedPlaylist.banners.length === 0) ? (
             <div className="card" style={{ textAlign: 'center', padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
               <ImageIcon size={32} style={{ color: 'var(--color-text-muted)' }} />
-              <h4 style={{ fontSize: '15px', fontWeight: 600 }}>No banners inside this playlist</h4>
+              <h4 style={{ fontSize: '15px', fontWeight: 600 }}>Playlist is empty</h4>
               <p style={{ color: 'var(--color-text-secondary)', fontSize: '12px', maxWidth: '360px' }}>
-                This playlist has no promotional banner components. Edit this playlist to link graphics from your library.
+                There are no active banner schedules assigned inside this playlist. Edit playlist to map assets.
               </p>
             </div>
           ) : (
-            /* Playlist contents sequence list (Read Only) */
             <div className="table-wrapper">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '60px', textAlign: 'center' }}>Order</th>
+                    <th style={{ width: '80px', textAlign: 'center' }}>Sequence</th>
                     <th style={{ width: '80px' }}>Preview</th>
                     <th>Banner Name</th>
-                    <th>Type</th>
-                    <th>Duration</th>
-                    <th>Schedule Details</th>
+                    <th style={{ width: '120px' }}>Format Type</th>
+                    <th>Schedule Period</th>
                     <th style={{ width: '120px', textAlign: 'center' }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedPlaylist.banners.map((item, idx) => {
-                    const bannerRecord = banners.find(b => b.id === item.bannerId) || {};
-                    const scheduleStatus = getBannerScheduleStatus(item);
+                  {currentSelectedPlaylist.banners.map((item) => {
+                    const fullBanner = banners.find(b => b.id === item.bannerId);
+                    if (!fullBanner) return null;
+                    const schedStatus = getBannerScheduleStatus(item);
                     return (
                       <tr key={item.bannerId}>
-                        <td style={{ textAlign: 'center', fontWeight: 600 }}>{item.displayOrder}</td>
+                        <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--color-primary)' }}>#{item.order}</td>
                         <td>
-                          <div style={{ width: '50px', height: '30px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--color-border)', backgroundColor: '#f8fafc' }}>
-                            {bannerRecord.mediaType === 'Video' ? (
+                          <div style={{ width: '50px', height: '30px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--color-border)', backgroundColor: '#f1f5f9' }}>
+                            {fullBanner.mediaType === 'Video' ? (
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--color-primary)' }}>
                                 <Film size={12} />
                               </div>
                             ) : (
-                              <img src={bannerRecord.mediaUrl} alt="prev" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img src={fullBanner.mediaUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             )}
                           </div>
                         </td>
-                        <td>
-                          <div style={{ fontWeight: 500 }}>{bannerRecord.name || 'Unknown Banner'}</div>
-                        </td>
-                        <td>{bannerRecord.mediaType || 'Image'}</td>
-                        <td>{bannerRecord.mediaType === 'Video' ? 'Auto' : `${bannerRecord.duration || 10}s`}</td>
-                        <td>
-                          <div style={{ fontSize: '11px' }}>
-                            {item.scheduleType === 'Continuous' ? (
-                              <span>Continuous (Start: <strong>{item.startDate}</strong>)</span>
-                            ) : (
-                              <span>Range: <strong>{item.startDate} {item.startTime}</strong> to <strong>{item.endDate} {item.endTime}</strong></span>
-                            )}
-                          </div>
+                        <td style={{ fontWeight: 500 }}>{fullBanner.name}</td>
+                        <td>{fullBanner.mediaType}</td>
+                        <td style={{ fontSize: '12px' }}>
+                          {item.scheduleType === 'Always' ? (
+                            <span>Always Active (Indefinite)</span>
+                          ) : (
+                            <span>{item.startDate} to {item.endDate || 'No limit'} ({item.startTime} - {item.endTime})</span>
+                          )}
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <span className={`badge ${getScheduleBadgeClass(scheduleStatus)}`}>
-                            {scheduleStatus}
+                          <span className={`badge ${getStatusBadgeClass(schedStatus)}`}>
+                            {schedStatus}
                           </span>
                         </td>
                       </tr>
@@ -568,338 +585,166 @@ const Playlists = () => {
             </div>
           )}
         </div>
-      )}
+      ) : (
+        /* ADD / EDIT SUB-PAGE FORM */
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '24px', alignItems: 'start' }}>
+          {/* Left Panel: Basic config & Banner sequence */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* Properties Card */}
+            <div className="card">
+              <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px' }}>Playlist Information</h3>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '16px' }}>
+                <div className="form-group">
+                  <label className="form-label">Playlist Name <span className="required">*</span></label>
+                  <input 
+                    type="text" 
+                    value={formData.name} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g. Counter Signage Grid"
+                    className={`form-control ${errors.name ? 'error' : ''}`}
+                  />
+                  {errors.name && <span className="form-error">{errors.name}</span>}
+                </div>
 
-      {/* Add / Edit Playlist Dialog Modal (With inline Banners configuration list) */}
-      {formOpen && (
-        <div className="modal-overlay">
-          <div className="modal-container size-lg" style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-            <div className="modal-header">
-              <h3>{editTarget ? 'Edit Playlist Info' : 'Create Playlist'}</h3>
-              <button onClick={() => setFormOpen(false)} className="modal-close-btn">
-                <X size={16} />
-              </button>
-            </div>
-            
-            <div className="modal-body" style={{ overflowY: 'auto', flex: 1, padding: '24px' }}>
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label">Playlist Name <span className="required">*</span></label>
-                <input 
-                  type="text" 
-                  value={formData.name} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))} 
-                  className={`form-control ${errors.name ? 'error' : ''}`}
-                  placeholder="e.g. Main Entrance Promo Loop"
-                />
-                {errors.name && <span className="form-error">{errors.name}</span>}
+                <div className="form-group">
+                  <label className="form-label">Playlist Status</label>
+                  <select 
+                    value={formData.status} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                    className="form-control"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
               </div>
 
-              <div className="form-group" style={{ marginBottom: '16px' }}>
+              <div className="form-group">
                 <label className="form-label">Description</label>
                 <textarea 
                   value={formData.description} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Describe where this playlist is intended to show."
                   className="form-control"
                   style={{ height: '70px', padding: '8px 12px', resize: 'vertical' }}
-                  placeholder="Provide context about where and when this playlist displays."
-                />
-              </div>
-
-              <div className="form-group" style={{ marginBottom: '24px' }}>
-                <label className="form-label">Playlist Status</label>
-                <select 
-                  value={formData.status} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
-                  className={`form-control ${errors.status ? 'error' : ''}`}
-                >
-                  <option value="Inactive">Inactive (Disabled)</option>
-                  <option value="Active">Active (Available for Signage)</option>
-                </select>
-                {errors.status && <span className="form-error">{errors.status}</span>}
-              </div>
-
-              {/* Inlined Playlist Banners sequence table as per mockup */}
-              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <h4 style={{ fontSize: '14px', fontWeight: 600 }}>Playlist Banners Sequence</h4>
-                  <button 
-                    type="button" 
-                    className="btn btn-outline" 
-                    style={{ height: '28px', padding: '0 10px', fontSize: '12px' }}
-                    onClick={() => { setBannerPickerOpen(true); setSelectedBannerIds(new Set()); setBannerSearchQuery(''); }}
-                  >
-                    <Plus size={14} />
-                    <span>Add Banner</span>
-                  </button>
-                </div>
-
-                {!formData.banners || formData.banners.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '32px 16px', border: '1px dashed var(--color-border)', borderRadius: '6px', backgroundColor: '#f8fafc' }}>
-                    <ImageIcon size={24} style={{ color: 'var(--color-text-muted)', marginBottom: '8px' }} />
-                    <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>No banners added to this playlist yet. Click "+ Add Banner" to select graphics.</p>
-                  </div>
-                ) : (
-                  <div className="table-wrapper" style={{ margin: 0, border: '1px solid var(--color-border)', borderRadius: '6px' }}>
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th style={{ width: '40px' }}></th>
-                          <th style={{ width: '60px', textAlign: 'center' }}>Order</th>
-                          <th style={{ width: '80px' }}>Preview</th>
-                          <th>Banner Name</th>
-                          <th>Schedule Details</th>
-                          <th style={{ width: '120px', textAlign: 'center' }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {formData.banners.map((item, idx) => {
-                          const bannerRecord = banners.find(b => b.id === item.bannerId) || {};
-                          return (
-                            <tr 
-                              key={item.bannerId}
-                              draggable="true"
-                              onDragStart={(e) => handleDragStartForm(e, idx)}
-                              onDragOver={handleDragOverForm}
-                              onDrop={(e) => handleDropForm(e, idx)}
-                              style={{ 
-                                opacity: draggedIndex === idx ? 0.4 : 1,
-                                cursor: 'grab',
-                                backgroundColor: draggedIndex === idx ? '#f1f5f9' : 'transparent'
-                              }}
-                            >
-                              <td style={{ textAlign: 'center', color: 'var(--color-text-muted)', cursor: 'grab' }}>
-                                <GripVertical size={14} style={{ opacity: 0.5 }} />
-                              </td>
-                              <td style={{ textAlign: 'center', fontWeight: 600 }}>{item.displayOrder}</td>
-                              <td>
-                                <div style={{ width: '45px', height: '26px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--color-border)', backgroundColor: '#f8fafc' }}>
-                                  {bannerRecord.mediaType === 'Video' ? (
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--color-primary)' }}>
-                                      <Film size={10} />
-                                    </div>
-                                  ) : (
-                                    <img src={bannerRecord.mediaUrl} alt="prev" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                  )}
-                                </div>
-                              </td>
-                              <td>
-                                <div style={{ fontWeight: 500, fontSize: '13px' }}>{bannerRecord.name || 'Unknown Banner'}</div>
-                              </td>
-                              <td style={{ fontSize: '11px' }}>
-                                {item.scheduleType === 'Continuous' ? (
-                                  <span>Continuous</span>
-                                ) : (
-                                  <span>{item.startDate} {item.startTime} to {item.endDate} {item.endTime}</span>
-                                )}
-                              </td>
-                              <td style={{ textAlign: 'center' }}>
-                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                                  <button 
-                                    type="button"
-                                    onClick={() => handleOpenScheduleEdit(item)}
-                                    className="btn btn-outline" 
-                                    style={{ height: '24px', padding: '0 8px', fontSize: '11px' }}
-                                  >
-                                    Schedule
-                                  </button>
-                                  <button 
-                                    type="button"
-                                    onClick={() => handleRemoveBannerFromForm(item.bannerId)}
-                                    className="btn btn-outline" 
-                                    style={{ height: '24px', padding: '0 6px', borderColor: 'var(--color-error)' }}
-                                  >
-                                    <Trash2 size={12} style={{ color: 'var(--color-error)' }} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Clock size={12} />
-                  <span>Drag rows by the handles to rearrange display sequence inside the form.</span>
-                </div>
-              </div>
-
-            </div>
-            
-            <div className="modal-footer" style={{ borderTop: '1px solid var(--color-border)' }}>
-              <button onClick={() => setFormOpen(false)} className="btn btn-secondary">Cancel</button>
-              <button onClick={handleSavePlaylist} className="btn btn-primary">Save Playlist</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Banner Picker Checklist Modal (Linking banners to playlist) */}
-      {bannerPickerOpen && (
-        <div className="modal-overlay">
-          <div className="modal-container size-md">
-            <div className="modal-header">
-              <h3>Select Banners</h3>
-              <button onClick={() => setBannerPickerOpen(false)} className="modal-close-btn">
-                <X size={16} />
-              </button>
-            </div>
-            
-            {/* Search filter inside modal */}
-            <div style={{ padding: '16px 24px 8px 24px', borderBottom: '1px solid var(--color-border)' }}>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <Search size={14} style={{ position: 'absolute', left: '10px', color: 'var(--color-text-muted)' }} />
-                <input 
-                  type="text" 
-                  value={bannerSearchQuery}
-                  onChange={(e) => setBannerSearchQuery(e.target.value)}
-                  placeholder="Search existing banner files..."
-                  className="form-control"
-                  style={{ height: '32px', paddingLeft: '32px', fontSize: '12px' }}
                 />
               </div>
             </div>
 
-            <div className="modal-body" style={{ maxHeight: '50vh', overflowY: 'auto', padding: '16px 24px' }}>
-              {banners.filter(b => b.status === 'Active').length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '24px 0' }}>
-                  <AlertCircle size={24} style={{ color: 'var(--color-text-muted)' }} />
-                  <p style={{ marginTop: '8px', fontSize: '13px' }}>No active banners available in your catalog. Please configure banners first.</p>
+            {/* Sequence Loop list inside form */}
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: 600 }}>Mapped Banners & Timing Loop</h3>
+                <button className="btn btn-outline" style={{ height: '32px' }} onClick={handleOpenBannerPicker}>
+                  <Plus size={14} />
+                  <span>Configure Banners</span>
+                </button>
+              </div>
+
+              {formData.banners.length === 0 ? (
+                <div style={{ padding: '36px 12px', textAlign: 'center', color: 'var(--color-text-secondary)', border: '1.5px dashed var(--color-border)', borderRadius: '6px' }}>
+                  <ImageIcon size={28} style={{ color: 'var(--color-text-muted)', marginBottom: '8px' }} />
+                  <div style={{ fontSize: '12px' }}>No banners selected inside this playlist loop.</div>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {banners
-                    .filter(b => b.status === 'Active')
-                    .filter(b => b.name.toLowerCase().includes(bannerSearchQuery.toLowerCase()))
-                    .map(b => {
-                      const isAlreadyAdded = formData.banners.some(item => item.bannerId === b.id);
-                      const isChecked = selectedBannerIds.has(b.id) || isAlreadyAdded;
-                      return (
-                        <div 
-                          key={b.id} 
-                          onClick={() => !isAlreadyAdded && handleToggleBannerSelection(b.id)}
-                          style={{ 
-                            display: 'flex', 
-                            justifyContent: 'space-between', 
-                            alignItems: 'center', 
-                            padding: '10px', 
-                            border: '1px solid var(--color-border)', 
-                            borderRadius: '6px', 
-                            backgroundColor: isAlreadyAdded ? '#f8fafc' : '#ffffff',
-                            cursor: isAlreadyAdded ? 'default' : 'pointer'
-                          }}
-                        >
-                          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                            <input 
-                              type="checkbox" 
-                              checked={isChecked} 
-                              disabled={isAlreadyAdded}
-                              onChange={() => {}} // handled by row onClick
-                              style={{ cursor: isAlreadyAdded ? 'default' : 'pointer' }}
-                            />
-                            <div style={{ width: '50px', height: '30px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
-                              <img src={b.mediaUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  {formData.banners.map((item, idx) => {
+                    const fullBanner = banners.find(b => b.id === item.bannerId);
+                    if (!fullBanner) return null;
+                    return (
+                      <div 
+                        key={item.bannerId}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '10px 12px',
+                          border: '1px solid var(--color-border)',
+                          borderRadius: '6px',
+                          backgroundColor: '#ffffff'
+                        }}
+                      >
+                        <GripVertical size={16} style={{ color: 'var(--color-text-muted)', marginRight: '8px', cursor: 'grab' }} />
+                        
+                        <div style={{ width: '48px', height: '28px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--color-border)', marginRight: '12px', backgroundColor: '#f1f5f9' }}>
+                          {fullBanner.mediaType === 'Video' ? (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--color-primary)' }}>
+                              <Film size={12} />
                             </div>
-                            <div>
-                              <div style={{ fontWeight: 500, fontSize: '13px' }}>{b.name}</div>
-                              <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Format: {b.mediaType}</div>
-                            </div>
-                          </div>
-                          {isAlreadyAdded && <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>Linked</span>}
+                          ) : (
+                            <img src={fullBanner.mediaUrl} alt="prev" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          )}
                         </div>
-                      );
-                    })}
+
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 500, fontSize: '13px' }}>{fullBanner.name}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px' }}>
+                            <span>Order #{item.order}</span>
+                            <span>•</span>
+                            <span 
+                              style={{ color: 'var(--color-primary)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '2px' }}
+                              onClick={() => handleOpenScheduleEditor(item)}
+                            >
+                              <Clock size={10} />
+                              {item.scheduleType === 'Always' ? 'Always' : 'Scheduled time'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Order sorting icons */}
+                        <div style={{ display: 'flex', gap: '4px', marginRight: '12px' }}>
+                          <button 
+                            type="button" 
+                            disabled={idx === 0} 
+                            onClick={() => moveBannerItem(idx, -1)} 
+                            className="btn btn-outline" 
+                            style={{ height: '26px', width: '26px', padding: 0, opacity: idx === 0 ? 0.3 : 1 }}
+                          >
+                            <ArrowUp size={12} />
+                          </button>
+                          <button 
+                            type="button" 
+                            disabled={idx === formData.banners.length - 1} 
+                            onClick={() => moveBannerItem(idx, 1)} 
+                            className="btn btn-outline" 
+                            style={{ height: '26px', width: '26px', padding: 0, opacity: idx === formData.banners.length - 1 ? 0.3 : 1 }}
+                          >
+                            <ArrowDown size={12} />
+                          </button>
+                        </div>
+
+                        {/* Remove item */}
+                        <button 
+                          type="button" 
+                          onClick={() => removeBannerFromForm(idx)}
+                          className="btn btn-outline" 
+                          style={{ height: '26px', width: '26px', padding: 0, borderColor: 'var(--color-error)' }}
+                        >
+                          <Trash2 size={12} style={{ color: 'var(--color-error)' }} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
-            <div className="modal-footer">
-              <button onClick={() => setBannerPickerOpen(false)} className="btn btn-outline">Cancel</button>
-              <button 
-                onClick={handleAddSelectedBanners} 
-                className="btn btn-primary"
-                disabled={selectedBannerIds.size === 0}
-              >
-                Add Selected ({selectedBannerIds.size})
-              </button>
+
+            {/* Action buttons at bottom left */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button className="btn btn-secondary" onClick={() => setViewState('list')}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleSavePlaylist}>Save Playlist</button>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Edit Banner Schedule Modal */}
-      {scheduleModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-container size-sm">
-            <div className="modal-header">
-              <h3>Configure Playback Schedule</h3>
-              <button onClick={() => setScheduleModalOpen(false)} className="modal-close-btn">
-                <X size={16} />
-              </button>
-            </div>
-            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div className="form-grid" style={{ gridTemplateColumns: '1.2fr 0.8fr', gap: '8px' }}>
-                <div className="form-group">
-                  <label className="form-label">Start Date <span className="required">*</span></label>
-                  <input 
-                    type="date" 
-                    value={scheduleForm.startDate} 
-                    onChange={(e) => setScheduleForm(prev => ({ ...prev, startDate: e.target.value }))}
-                    className="form-control"
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Start Time</label>
-                  <input 
-                    type="time" 
-                    value={scheduleForm.startTime} 
-                    onChange={(e) => setScheduleForm(prev => ({ ...prev, startTime: e.target.value }))}
-                    className="form-control"
-                  />
-                </div>
-              </div>
-
-              {/* No End Date checkbox check */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
-                <input 
-                  type="checkbox" 
-                  id="no-end-date-check"
-                  checked={scheduleForm.noEndDate} 
-                  onChange={(e) => setScheduleForm(prev => ({ ...prev, noEndDate: e.target.checked }))}
-                  style={{ cursor: 'pointer' }}
-                />
-                <label htmlFor="no-end-date-check" style={{ fontSize: '13px', fontWeight: 500, cursor: 'pointer', userSelect: 'none' }}>
-                  No End Date (Run Indefinitely)
-                </label>
-              </div>
-
-              {!scheduleForm.noEndDate && (
-                <div className="form-grid" style={{ gridTemplateColumns: '1.2fr 0.8fr', gap: '8px' }}>
-                  <div className="form-group">
-                    <label className="form-label">End Date <span className="required">*</span></label>
-                    <input 
-                      type="date" 
-                      value={scheduleForm.endDate} 
-                      onChange={(e) => setScheduleForm(prev => ({ ...prev, endDate: e.target.value }))}
-                      className="form-control"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">End Time</label>
-                    <input 
-                      type="time" 
-                      value={scheduleForm.endTime} 
-                      onChange={(e) => setScheduleForm(prev => ({ ...prev, endTime: e.target.value }))}
-                      className="form-control"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="modal-footer">
-              <button onClick={() => setScheduleModalOpen(false)} className="btn btn-outline">Cancel</button>
-              <button onClick={handleSaveSchedule} className="btn btn-primary">Save Schedule</button>
-            </div>
+          {/* Right Panel: Side panel configuration help */}
+          <div className="card">
+            <h3 style={{ fontSize: '14px', fontWeight: 600, borderBottom: '1px solid var(--color-border)', paddingBottom: '8px', marginBottom: '12px' }}>Loops Scheduling Rules</h3>
+            <ul style={{ fontSize: '12px', color: 'var(--color-text-secondary)', display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '16px' }}>
+              <li>Banners in the playlist are played in ascending order.</li>
+              <li>When the loop completes, it automatically restarts from banner #1.</li>
+              <li>Configure individual banner scheduling to specify exact start/end dates.</li>
+              <li>Inactive banners or expired configurations will be skipped automatically during playback.</li>
+            </ul>
           </div>
         </div>
       )}
@@ -920,7 +765,7 @@ const Playlists = () => {
             <div className="modal-body" style={{ padding: '0 24px 16px 24px' }}>
               <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
                 Are you sure you want to permanently delete playlist <strong>{confirmDeleteTarget.name}</strong>? 
-                Banners inside this playlist will not be deleted from the system library.
+                Connected TV displays will fallback to default screens.
               </p>
             </div>
             <div className="modal-footer" style={{ borderTop: 'none', padding: '16px 24px' }}>
@@ -931,7 +776,156 @@ const Playlists = () => {
         </div>
       )}
 
-      {/* Playlist Filter modal */}
+      {/* Banner checklist popup */}
+      {bannerPickerOpen && (
+        <div className="modal-overlay">
+          <div className="modal-container size-md" style={{ maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-header">
+              <h3>Map Banners to Playlist</h3>
+              <button onClick={() => setBannerPickerOpen(false)} className="modal-close-btn">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ overflowY: 'auto', flex: 1, padding: '20px' }}>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+                <Search size={14} style={{ position: 'absolute', left: '12px', color: 'var(--color-text-muted)', opacity: 0.6 }} />
+                <input 
+                  type="text" 
+                  placeholder="Search banners catalog..." 
+                  value={bannerSearchQuery}
+                  onChange={(e) => setBannerSearchQuery(e.target.value)}
+                  className="form-control"
+                  style={{ width: '100%', paddingLeft: '34px', height: '34px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {banners
+                  .filter(b => b.name.toLowerCase().includes(bannerSearchQuery.toLowerCase()))
+                  .map(b => {
+                    const isChecked = selectedBannerIds.has(b.id);
+                    return (
+                      <div 
+                        key={b.id}
+                        onClick={() => handleTogglePickerSelection(b.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '10px',
+                          border: '1px solid var(--color-border)',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          backgroundColor: isChecked ? '#f8fafc' : '#ffffff'
+                        }}
+                      >
+                        <input 
+                          type="checkbox" 
+                          checked={isChecked}
+                          onChange={() => {}} // handled by parent wrapper onClick
+                          style={{ marginRight: '12px', cursor: 'pointer' }}
+                        />
+                        <div style={{ width: '48px', height: '28px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--color-border)', marginRight: '12px', backgroundColor: '#f1f5f9' }}>
+                          {b.mediaType === 'Video' ? (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--color-primary)' }}>
+                              <Film size={12} />
+                            </div>
+                          ) : (
+                            <img src={b.mediaUrl} alt="prev" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          )}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 500, fontSize: '13px' }}>{b.name}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Format: {b.mediaType}</div>
+                        </div>
+                        <span className={`badge badge-${b.status.toLowerCase()}`}>{b.status}</span>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+            <div className="modal-footer" style={{ borderTop: '1px solid var(--color-border)' }}>
+              <button onClick={() => setBannerPickerOpen(false)} className="btn btn-secondary">Cancel</button>
+              <button onClick={handleApplyBannerSelection} className="btn btn-primary">Apply Banners</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Scheduling editor popup */}
+      {scheduleModalOpen && selectedBannerForSchedule && (
+        <div className="modal-overlay">
+          <div className="modal-container size-sm">
+            <div className="modal-header">
+              <h3>Banner Scheduling Limits</h3>
+              <button onClick={() => setScheduleModalOpen(false)} className="modal-close-btn">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input 
+                  type="checkbox" 
+                  id="noEndDate" 
+                  checked={scheduleForm.noEndDate} 
+                  onChange={(e) => setScheduleForm(prev => ({ ...prev, noEndDate: e.target.checked }))}
+                  style={{ cursor: 'pointer' }}
+                />
+                <label htmlFor="noEndDate" style={{ fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>Always Active (No expiry dates)</label>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Start Date</label>
+                <input 
+                  type="date" 
+                  value={scheduleForm.startDate} 
+                  onChange={(e) => setScheduleForm(prev => ({ ...prev, startDate: e.target.value }))}
+                  className="form-control"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Start Time</label>
+                <input 
+                  type="time" 
+                  value={scheduleForm.startTime} 
+                  onChange={(e) => setScheduleForm(prev => ({ ...prev, startTime: e.target.value }))}
+                  className="form-control"
+                />
+              </div>
+
+              {!scheduleForm.noEndDate && (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">End Date</label>
+                    <input 
+                      type="date" 
+                      value={scheduleForm.endDate} 
+                      onChange={(e) => setScheduleForm(prev => ({ ...prev, endDate: e.target.value }))}
+                      className="form-control"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">End Time</label>
+                    <input 
+                      type="time" 
+                      value={scheduleForm.endTime} 
+                      onChange={(e) => setScheduleForm(prev => ({ ...prev, endTime: e.target.value }))}
+                      className="form-control"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button onClick={() => setScheduleModalOpen(false)} className="btn btn-secondary">Cancel</button>
+              <button onClick={handleApplyScheduleConfig} className="btn btn-primary">Apply Schedule</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filter modal dialog */}
       {filterOpen && (
         <div className="modal-overlay">
           <div className="modal-container size-sm">
@@ -954,24 +948,9 @@ const Playlists = () => {
                   <option value="Inactive">Inactive</option>
                 </select>
               </div>
-
-              <div className="form-group">
-                <label className="form-label">Schedule Status</label>
-                <select 
-                  value={activeFilters.scheduleStatus} 
-                  onChange={(e) => setActiveFilters(prev => ({ ...prev, scheduleStatus: e.target.value }))}
-                  className="form-control"
-                >
-                  <option value="">All Schedule Statuses</option>
-                  <option value="Running">Running</option>
-                  <option value="Upcoming">Upcoming</option>
-                  <option value="Expired">Expired</option>
-                  <option value="No End Date">No End Date (Continuous)</option>
-                </select>
-              </div>
             </div>
             <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
-              <button onClick={() => { setActiveFilters({ status: '', scheduleStatus: '' }); setFilterOpen(false); }} className="btn btn-secondary">
+              <button onClick={() => { setActiveFilters({ status: '' }); setFilterOpen(false); }} className="btn btn-secondary">
                 Clear Filters
               </button>
               <div style={{ display: 'flex', gap: '8px' }}>

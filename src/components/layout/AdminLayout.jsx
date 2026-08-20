@@ -50,7 +50,9 @@ const AdminLayout = () => {
       )}
 
       <div className="main-container">
-        <Outlet />
+        <main className="main-content">
+          <Outlet />
+        </main>
       </div>
       <ToastContainer />
     </div>
