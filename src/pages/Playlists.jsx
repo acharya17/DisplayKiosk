@@ -742,7 +742,28 @@ const Playlists = () => {
                       </div>
 
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 500, fontSize: '13px' }}>{fullBanner.name}</div>
+                        <div style={{ fontWeight: 500, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>{fullBanner.name}</span>
+                          {!fullBanner.tvPermission && (
+                            <span 
+                              title="Signage playback is blocked because TV permission is revoked for this banner asset."
+                              style={{ 
+                                display: 'inline-flex', 
+                                alignItems: 'center', 
+                                gap: '3px', 
+                                color: 'var(--color-error)', 
+                                backgroundColor: '#fef2f2', 
+                                border: '1px solid #fee2e2', 
+                                padding: '1px 5px', 
+                                borderRadius: '4px', 
+                                fontSize: '9px',
+                                fontWeight: 600
+                              }}
+                            >
+                              <AlertTriangle size={8} /> Permission Blocked
+                            </span>
+                          )}
+                        </div>
                         <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px' }}>
                           <span>Order #{item.order}</span>
                           <span>•</span>

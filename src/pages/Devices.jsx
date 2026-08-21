@@ -34,6 +34,7 @@ const Devices = () => {
 
   // Modals Open States
   const [confirmDeleteTarget, setConfirmDeleteTarget] = useState(null);
+  const [unsavedModalOpen, setUnsavedModalOpen] = useState(false);
 
   // Form State
   const initialTVForm = {
@@ -41,11 +42,21 @@ const Devices = () => {
     tvId: '',
     branchId: '',
     groupId: '',
-    playlistId: '', // Optional priority override
-    status: 'Active'
+    playlistId: '',
+    status: 'Active',
+    schedules: []
   };
   const [formData, setFormData] = useState(initialTVForm);
   const [errors, setErrors] = useState({});
+  const [draftSlot, setDraftSlot] = useState({
+    startTime: '09:00',
+    endTime: '10:00',
+    scheduleType: 'Daily',
+    startDate: '',
+    endDate: '',
+    playlistIds: []
+  });
+  const [slotErrors, setSlotErrors] = useState({});
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -62,14 +73,39 @@ const Devices = () => {
   };
 
   const handleOpenAdd = () => {
-    setFormData(initialTVForm);
+    setFormData({
+      ...initialTVForm,
+      branchId: branches[0]?.id || 'br-1',
+      tvId: 'TV-' + Math.random().toString(36).substr(2, 6).toUpperCase()
+    });
+    setDraftSlot({
+      startTime: '09:00',
+      endTime: '10:00',
+      scheduleType: 'Daily',
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date().toISOString().split('T')[0],
+      playlistIds: []
+    });
     setErrors({});
+    setSlotErrors({});
     setViewState('add');
   };
 
   const handleOpenEdit = (tv) => {
-    setFormData({ ...tv });
+    setFormData({ 
+      ...tv,
+      schedules: tv.schedules || []
+    });
+    setDraftSlot({
+      startTime: '09:00',
+      endTime: '10:00',
+      scheduleType: 'Daily',
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date().toISOString().split('T')[0],
+      playlistIds: []
+    });
     setErrors({});
+    setSlotErrors({});
     setViewState('edit');
   };
 
@@ -81,42 +117,149 @@ const Devices = () => {
   const validateTV = () => {
     const tempErrors = {};
     if (!formData.name?.trim()) tempErrors.name = 'TV Display Name is required';
-    
-    // Rule 2: TV ID must be unique
-    if (!formData.tvId?.trim()) {
-      tempErrors.tvId = 'TV Identifier Code is required';
-    } else {
-      const match = tvs.find(t => t.tvId.toLowerCase() === formData.tvId.trim().toLowerCase());
-      if (match && match.id !== formData.id) {
-        tempErrors.tvId = 'TV ID code must be unique (already registered)';
-      }
-    }
-
-    // Rule 4: Every TV must belong to a branch
-    if (!formData.branchId) {
-      tempErrors.branchId = 'Branch allocation is required';
-    } else {
-      // Rule 4 constraint: Inactive branches should not receive new TV assignments
-      const targetBranch = branches.find(b => b.id === formData.branchId);
-      if (targetBranch && targetBranch.status === 'Inactive' && viewState !== 'edit') {
-        tempErrors.branchId = 'TVs cannot be allocated to inactive branch networks';
-      }
-    }
-
     setErrors(tempErrors);
     return Object.keys(tempErrors).length === 0;
   };
 
+  const validateDraftSlot = () => {
+    const tempErrors = {};
+    if (!draftSlot.startTime) tempErrors.startTime = 'Start Time is required';
+    if (!draftSlot.endTime) tempErrors.endTime = 'End Time is required';
+    if (draftSlot.startTime && draftSlot.endTime && draftSlot.startTime >= draftSlot.endTime) {
+      tempErrors.endTime = 'End time must be after start time';
+    }
+    if (!draftSlot.playlistIds || draftSlot.playlistIds.length === 0) {
+      tempErrors.playlistIds = 'At least one playlist must be selected';
+    }
+    if (draftSlot.scheduleType === 'Date Range') {
+      if (!draftSlot.startDate) tempErrors.startDate = 'Start date is required';
+      if (!draftSlot.endDate) tempErrors.endDate = 'End date is required';
+      if (draftSlot.startDate && draftSlot.endDate && draftSlot.startDate > draftSlot.endDate) {
+        tempErrors.endDate = 'End date must be after start date';
+      }
+    }
+
+    if (!tempErrors.startTime && !tempErrors.endTime) {
+      const convertToMinutes = (timeStr) => {
+        const [h, m] = timeStr.split(':').map(Number);
+        return h * 60 + m;
+      };
+      const newStart = convertToMinutes(draftSlot.startTime);
+      const newEnd = convertToMinutes(draftSlot.endTime);
+
+      const hasOverlap = (formData.schedules || []).some(s => {
+        const scheduleDatesOverlap = () => {
+          if (draftSlot.scheduleType === 'Daily' || s.scheduleType === 'Daily') return true;
+          return (draftSlot.startDate <= s.endDate && s.startDate <= draftSlot.endDate);
+        };
+
+        if (scheduleDatesOverlap()) {
+          const sStart = convertToMinutes(s.startTime);
+          const sEnd = convertToMinutes(s.endTime);
+          return (newStart < sEnd && sStart < newEnd);
+        }
+        return false;
+      });
+
+      if (hasOverlap) {
+        tempErrors.conflict = 'Time slot conflicts or overlaps with an existing slot.';
+      }
+    }
+
+    setSlotErrors(tempErrors);
+    return Object.keys(tempErrors).length === 0;
+  };
+
+  const handleAddSlotClick = () => {
+    if (!validateDraftSlot()) return;
+    const newSlot = {
+      id: `slot-${Date.now()}`,
+      ...draftSlot
+    };
+    setFormData(prev => ({
+      ...prev,
+      schedules: [...(prev.schedules || []), newSlot]
+    }));
+    setDraftSlot(prev => ({
+      ...prev,
+      playlistIds: []
+    }));
+    setSlotErrors({});
+  };
+
+  const handleDeleteSlot = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      schedules: prev.schedules.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleEditSlot = (index) => {
+    const target = formData.schedules[index];
+    setDraftSlot({
+      startTime: target.startTime || '09:00',
+      endTime: target.endTime || '10:00',
+      scheduleType: target.scheduleType || 'Daily',
+      startDate: target.startDate || '',
+      endDate: target.endDate || '',
+      playlistIds: target.playlistIds || (target.playlistId ? [target.playlistId] : [])
+    });
+    handleDeleteSlot(index);
+  };
+
+  const hasUnsavedChanges = () => {
+    if (viewState === 'add') {
+      return (
+        formData.name !== '' ||
+        formData.tvId !== '' ||
+        formData.branchId !== '' ||
+        formData.groupId !== '' ||
+        formData.playlistId !== '' ||
+        formData.schedules?.length > 0
+      );
+    }
+    if (viewState === 'edit') {
+      const original = tvs.find(t => t.id === formData.id);
+      if (!original) return false;
+      return (
+        formData.name !== original.name ||
+        formData.tvId !== original.tvId ||
+        formData.branchId !== original.branchId ||
+        formData.groupId !== original.groupId ||
+        formData.playlistId !== original.playlistId ||
+        formData.status !== original.status ||
+        JSON.stringify(formData.schedules || []) !== JSON.stringify(original.schedules || [])
+      );
+    }
+    return false;
+  };
+
+  const handleBack = () => {
+    if ((viewState === 'add' || viewState === 'edit') && hasUnsavedChanges()) {
+      setUnsavedModalOpen(true);
+    } else {
+      setViewState('list');
+    }
+  };
+
   const handleSaveTV = () => {
-    if (!validateTV()) return;
+    if (!validateTV()) return false;
 
     if (viewState === 'edit') {
       const success = editTV(formData.id, formData);
-      if (success) setViewState('list');
+      if (success) {
+        setViewState('list');
+        return true;
+      }
     } else {
-      const success = addTV(formData);
-      if (success) setViewState('list');
+      const newTVId = addTV(formData);
+      if (newTVId) {
+        setSelectedTVId(newTVId);
+        setViewState('detail'); // Proceed to Display Configuration naturally
+        return true;
+      }
     }
+    return false;
   };
 
   const handleDeleteConfirm = () => {
@@ -129,8 +272,69 @@ const Devices = () => {
     }
   };
 
+  const handleAddTimeSlot = () => {
+    setFormData(prev => ({
+      ...prev,
+      schedules: [
+        ...(prev.schedules || []),
+        { id: `slot-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`, startTime: '08:00', endTime: '12:00', playlistId: '' }
+      ]
+    }));
+  };
+
+  const handleRemoveTimeSlot = (index) => {
+    setFormData(prev => {
+      const nextSchedules = [...(prev.schedules || [])];
+      nextSchedules.splice(index, 1);
+      return { ...prev, schedules: nextSchedules };
+    });
+  };
+
+  const handleUpdateSlot = (index, field, value) => {
+    setFormData(prev => {
+      const nextSchedules = [...(prev.schedules || [])];
+      nextSchedules[index] = { ...nextSchedules[index], [field]: value };
+      return { ...prev, schedules: nextSchedules };
+    });
+  };
+
   // Rule 11 Calculation: Priority Playlist Assignment Resolution
   const getPlaylistAssignment = (tvRecord) => {
+    // Priority 0: Active Schedule Slot (match current local time)
+    if (tvRecord.schedules && tvRecord.schedules.length > 0) {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const convertToMinutes = (timeStr) => {
+        const [h, m] = timeStr.split(':').map(Number);
+        return h * 60 + m;
+      };
+
+      const matchingSlot = tvRecord.schedules.find(slot => {
+        const start = convertToMinutes(slot.startTime);
+        const end = convertToMinutes(slot.endTime);
+        const matchesTime = currentMinutes >= start && currentMinutes <= end;
+        if (!matchesTime) return false;
+
+        if (slot.scheduleType === 'Date Range') {
+          const todayStr = now.toISOString().split('T')[0];
+          return todayStr >= slot.startDate && todayStr <= slot.endDate;
+        }
+        return true;
+      });
+
+      if (matchingSlot) {
+        const ids = matchingSlot.playlistIds || (matchingSlot.playlistId ? [matchingSlot.playlistId] : []);
+        const names = ids.map(id => playlists.find(p => p.id === id)?.name).filter(Boolean);
+        if (names.length > 0) {
+          return {
+            type: `Scheduled Loop (${matchingSlot.startTime}–${matchingSlot.endTime})`,
+            playlistName: names.join(', '),
+            playlistId: ids[0]
+          };
+        }
+      }
+    }
+
     // Priority 1: Individual Override
     if (tvRecord.playlistId) {
       const pl = playlists.find(p => p.id === tvRecord.playlistId);
@@ -172,41 +376,35 @@ const Devices = () => {
 
   // Columns for datatable list view
   const columns = [
-    { field: 'tvId', header: 'TV ID', sortable: true },
     { field: 'name', header: 'TV Name', sortable: true },
+    { field: 'slotTime', header: 'Time', sortable: true },
+    { field: 'slotSchedule', header: 'Schedule', sortable: true },
     { 
-      field: 'branchId', 
-      header: 'Branch Location',
-      sortable: true,
-      render: (val) => branches.find(b => b.id === val)?.name || 'Unknown'
-    },
-    { 
-      field: 'groupId', 
-      header: 'Display Group',
-      render: (val) => groups.find(g => g.id === val)?.name || <span style={{ color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>None</span>
-    },
-    { 
-      field: 'playlistId', 
-      header: 'Playlist Config',
+      field: 'slotPlaylists', 
+      header: 'Playlist(s)',
       render: (_, row) => {
-        const resolution = getPlaylistAssignment(row);
+        const ids = row.slotPlaylists || [];
+        const playlistNames = ids.map(id => playlists.find(p => p.id === id)?.name).filter(Boolean);
+        if (playlistNames.length === 0) {
+          return <span style={{ color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>Standby Fallback</span>;
+        }
+        const firstTwo = playlistNames.slice(0, 2);
+        const countRemaining = playlistNames.length - firstTwo.length;
         return (
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontWeight: 500 }}>{resolution.playlistName}</span>
-            <span style={{ fontSize: '10px', color: 'var(--color-text-secondary)' }}>{resolution.type}</span>
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {firstTwo.map(name => (
+              <span key={name} className="badge badge-active" style={{ fontSize: '11px', padding: '2px 6px', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1' }}>
+                {name}
+              </span>
+            ))}
+            {countRemaining > 0 && (
+              <span className="badge" style={{ fontSize: '10px', padding: '2px 5px', backgroundColor: '#e2e8f0', color: '#475569', fontWeight: 600 }}>
+                +{countRemaining}
+              </span>
+            )}
           </div>
         );
       }
-    },
-    { 
-      field: 'connectionStatus', 
-      header: 'Connection', 
-      sortable: true,
-      render: (val) => (
-        <span className={`badge ${getConnectionBadgeClass(val)}`}>
-          {val}
-        </span>
-      )
     },
     { 
       field: 'status', 
@@ -218,7 +416,7 @@ const Devices = () => {
             type="checkbox" 
             checked={val === 'Active'} 
             onChange={() => {
-              setTVStatus(row.id, val === 'Active' ? 'Inactive' : 'Active');
+              setTVStatus(row.originalTV?.id || row.id, val === 'Active' ? 'Inactive' : 'Active');
             }}
           />
           <span className="switch-slider"></span>
@@ -257,6 +455,30 @@ const Devices = () => {
     return true;
   });
 
+  const flattenedTVs = [];
+  filteredTVs.forEach(tv => {
+    if (tv.schedules && tv.schedules.length > 0) {
+      tv.schedules.forEach(slot => {
+        flattenedTVs.push({
+          ...tv,
+          id: `${tv.id}-${slot.id}`,
+          originalTV: tv,
+          slotTime: `${slot.startTime} – ${slot.endTime}`,
+          slotSchedule: slot.scheduleType === 'Date Range' ? `${slot.startDate} – ${slot.endDate}` : 'Daily',
+          slotPlaylists: slot.playlistIds || (slot.playlistId ? [slot.playlistId] : [])
+        });
+      });
+    } else {
+      flattenedTVs.push({
+        ...tv,
+        originalTV: tv,
+        slotTime: 'All Day',
+        slotSchedule: 'Daily',
+        slotPlaylists: tv.playlistId ? [tv.playlistId] : []
+      });
+    }
+  });
+
   const activeFiltersCount = Object.values(activeFilters).filter(Boolean).length;
   const selectedTV = tvs.find(t => t.id === selectedTVId);
   const resolvedPlaylist = selectedTV ? getPlaylistAssignment(selectedTV) : null;
@@ -267,7 +489,7 @@ const Devices = () => {
       <div className="breadcrumb">
         <span>TV Display</span>
         <ChevronRight size={12} className="breadcrumb-separator" />
-        <span className="breadcrumb-item active" style={{ cursor: viewState !== 'list' ? 'pointer' : 'default' }} onClick={() => setViewState('list')}>
+        <span className="breadcrumb-item active" style={{ cursor: viewState !== 'list' ? 'pointer' : 'default' }} onClick={handleBack}>
           TVs / Devices
         </span>
         {viewState === 'add' && (
@@ -295,7 +517,7 @@ const Devices = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {viewState !== 'list' && (
             <button 
-              onClick={() => setViewState('list')} 
+              onClick={handleBack} 
               className="btn btn-outline" 
               style={{ height: '36px', width: '36px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
               title="Back"
@@ -312,14 +534,14 @@ const Devices = () => {
             )}
             {viewState === 'add' && (
               <>
-                <h1 style={{ margin: 0 }}>Add TV</h1>
-                <p style={{ margin: 0 }}>Register a new physical TV display screen.</p>
+                <h1 style={{ margin: 0 }}>Register TV</h1>
+                <p style={{ margin: 0 }}>Connect a new physical display screen.</p>
               </>
             )}
             {viewState === 'edit' && (
               <>
-                <h1 style={{ margin: 0 }}>Edit TV Settings</h1>
-                <p style={{ margin: 0 }}>Configure hardware variables and layout overrides.</p>
+                <h1 style={{ margin: 0 }}>Configure TV</h1>
+                <p style={{ margin: 0 }}>Configure schedule slots and active loop playlists.</p>
               </>
             )}
             {viewState === 'detail' && selectedTV && (
@@ -355,13 +577,12 @@ const Devices = () => {
                 </button>
                 <button className="btn btn-primary" onClick={() => handleOpenEdit(selectedTV)}>
                   <Edit2 size={15} />
-                  <span>Edit TV</span>
+                  <span>Configure TV</span>
                 </button>
               </div>
             ) : (
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button className="btn btn-secondary" onClick={() => setViewState('list')}>Cancel</button>
-                <button className="btn btn-primary" onClick={handleSaveTV}>Save TV Screen</button>
+                <button className="btn btn-primary" onClick={handleSaveTV}>Save Configuration</button>
               </div>
             )
           )}
@@ -430,14 +651,14 @@ const Devices = () => {
 
             <DataTable 
               columns={columns}
-              data={filteredTVs}
-              onEdit={handleOpenEdit}
-              onDelete={(tv) => setConfirmDeleteTarget(tv)}
+              data={flattenedTVs}
+              onEdit={(row) => handleOpenEdit(row.originalTV || row)}
+              onDelete={(row) => setConfirmDeleteTarget(row.originalTV || row)}
               searchQuery={searchQuery}
               searchField="name"
               filters={activeFilters}
               keyField="id"
-              onRowClick={handleRowClick}
+              onRowClick={(row) => handleRowClick(row.originalTV || row)}
             />
           </>
         )
@@ -475,6 +696,33 @@ const Devices = () => {
                 <div style={{ fontWeight: 500, fontSize: '13px', marginTop: '2px' }}>{resolvedPlaylist.playlistName}</div>
               </div>
             </div>
+
+            {selectedTV.schedules && selectedTV.schedules.length > 0 && (
+              <div style={{ marginTop: '8px' }}>
+                <h4 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>Configured Recurring Time Slots</h4>
+                <div className="table-wrapper" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                  <table className="data-table" style={{ fontSize: '12px' }}>
+                    <thead>
+                      <tr>
+                        <th>Time Period</th>
+                        <th>Assigned Playlist</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedTV.schedules.map((slot, idx) => {
+                        const pl = playlists.find(p => p.id === slot.playlistId);
+                        return (
+                          <tr key={slot.id || idx}>
+                            <td style={{ padding: '6px 12px' }}>{slot.startTime} – {slot.endTime}</td>
+                            <td style={{ padding: '6px 12px', fontWeight: 500 }}>{pl ? pl.name : 'Unknown Playlist'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right panel: Attributes grid */}
@@ -506,100 +754,234 @@ const Devices = () => {
         </div>
       ) : (
         /* ADD / EDIT SUB-PAGE FORM */
-        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '24px', alignItems: 'start' }}>
-          {/* Card 1: TV Settings (Left Panel) */}
-          <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, borderBottom: '1px solid var(--color-border)', paddingBottom: '8px' }}>TV Screen Settings</h3>
-            
-            <div className="form-group">
-              <label className="form-label">TV Display Name <span className="required">*</span></label>
-              <input 
-                type="text" 
-                value={formData.name} 
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="e.g. Udupi Cashier Screen"
-                className={`form-control ${errors.name ? 'error' : ''}`}
-              />
-              {errors.name && <span className="form-error">{errors.name}</span>}
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">TV ID Code (Unique Identifier) <span className="required">*</span></label>
-              <input 
-                type="text" 
-                value={formData.tvId} 
-                onChange={(e) => setFormData(prev => ({ ...prev, tvId: e.target.value }))}
-                placeholder="e.g. TV-UDUPI-02"
-                className={`form-control ${errors.tvId ? 'error' : ''}`}
-              />
-              {errors.tvId && <span className="form-error">{errors.tvId}</span>}
-            </div>
-
-            {/* Status switch toggle */}
-            <div style={{ backgroundColor: '#f8fafc', padding: '12px 16px', borderRadius: '6px', border: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: '12px' }}>Device Status</div>
-                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                  {formData.status === 'Active' ? 'Active & loops signages' : 'Inactive / offline'}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '20px', alignItems: 'start' }}>
+          {/* Column 1: TV Core Details & Draft Schedule Slot */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* TV Screen Info */}
+            <div className="card" style={{ padding: '16px' }}>
+              <h3 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '12px', borderBottom: '1px solid var(--color-border)', paddingBottom: '6px' }}>TV Core Properties</h3>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">TV Display Name <span className="required">*</span></label>
+                <input 
+                  type="text" 
+                  value={formData.name} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g. Dining Hall TV"
+                  className={`form-control ${errors.name ? 'error' : ''}`}
+                  style={{ height: '34px' }}
+                />
+                {errors.name && <span className="form-error">{errors.name}</span>}
+                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '6px' }}>
+                  Hardware Identifier Code: <strong>{formData.tvId}</strong> (Auto-assigned)
                 </div>
               </div>
-              <label className="switch-control">
-                <input 
-                  type="checkbox" 
-                  checked={formData.status === 'Active'} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.checked ? 'Active' : 'Inactive' }))}
-                />
-                <span className="switch-slider"></span>
-              </label>
+            </div>
+
+            {/* Add Display Schedule (Time First, then Playlist) */}
+            <div className="card" style={{ padding: '16px' }}>
+              <h3 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '12px', borderBottom: '1px solid var(--color-border)', paddingBottom: '6px' }}>Add Display Schedule</h3>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {/* 1. Time selection */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Start Time</label>
+                    <input 
+                      type="time" 
+                      value={draftSlot.startTime} 
+                      onChange={(e) => setDraftSlot(prev => ({ ...prev, startTime: e.target.value }))}
+                      className="form-control"
+                      style={{ height: '34px' }}
+                    />
+                    {slotErrors.startTime && <span className="form-error">{slotErrors.startTime}</span>}
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">End Time</label>
+                    <input 
+                      type="time" 
+                      value={draftSlot.endTime} 
+                      onChange={(e) => setDraftSlot(prev => ({ ...prev, endTime: e.target.value }))}
+                      className="form-control"
+                      style={{ height: '34px' }}
+                    />
+                    {slotErrors.endTime && <span className="form-error">{slotErrors.endTime}</span>}
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Schedule Type</label>
+                    <select
+                      value={draftSlot.scheduleType}
+                      onChange={(e) => setDraftSlot(prev => ({ ...prev, scheduleType: e.target.value }))}
+                      className="form-control"
+                      style={{ height: '34px' }}
+                    >
+                      <option value="Daily">Daily recurring</option>
+                      <option value="Date Range">Date Range limit</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* 2. Date Range parameters (Optional) */}
+                {draftSlot.scheduleType === 'Date Range' && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', backgroundColor: '#f8fafc', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" style={{ fontSize: '11px' }}>From Date</label>
+                      <input 
+                        type="date" 
+                        value={draftSlot.startDate} 
+                        onChange={(e) => setDraftSlot(prev => ({ ...prev, startDate: e.target.value }))}
+                        className="form-control"
+                        style={{ height: '32px', fontSize: '12px' }}
+                      />
+                      {slotErrors.startDate && <span className="form-error">{slotErrors.startDate}</span>}
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" style={{ fontSize: '11px' }}>To Date</label>
+                      <input 
+                        type="date" 
+                        value={draftSlot.endDate} 
+                        onChange={(e) => setDraftSlot(prev => ({ ...prev, endDate: e.target.value }))}
+                        className="form-control"
+                        style={{ height: '32px', fontSize: '12px' }}
+                      />
+                      {slotErrors.endDate && <span className="form-error">{slotErrors.endDate}</span>}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Playlists checklist */}
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Select Playlists (Multiple allowed)</label>
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', 
+                    gap: '8px', 
+                    border: '1px solid var(--color-border)', 
+                    borderRadius: '6px', 
+                    padding: '10px', 
+                    maxHeight: '110px', 
+                    overflowY: 'auto', 
+                    backgroundColor: '#ffffff' 
+                  }}>
+                    {playlists.filter(p => p.status === 'Active').map(p => {
+                      const isChecked = draftSlot.playlistIds.includes(p.id);
+                      return (
+                        <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer', margin: 0 }}>
+                          <input 
+                            type="checkbox" 
+                            checked={isChecked}
+                            onChange={() => {
+                              setDraftSlot(prev => {
+                                const next = [...prev.playlistIds];
+                                const idx = next.indexOf(p.id);
+                                if (idx > -1) next.splice(idx, 1);
+                                else next.push(p.id);
+                                return { ...prev, playlistIds: next };
+                              });
+                            }}
+                          />
+                          <span>{p.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {slotErrors.playlistIds && <span className="form-error" style={{ display: 'block', marginTop: '4px' }}>{slotErrors.playlistIds}</span>}
+                </div>
+
+                {slotErrors.conflict && (
+                  <div style={{ color: 'var(--color-error)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}>
+                    <AlertTriangle size={12} /> {slotErrors.conflict}
+                  </div>
+                )}
+
+                <button 
+                  type="button" 
+                  onClick={handleAddSlotClick} 
+                  className="btn btn-outline"
+                  style={{ height: '34px', alignSelf: 'start', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}
+                >
+                  <Plus size={14} /> Add Time Slot
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Card 2: Branch & Group Allocation (Right Panel) */}
-          <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, borderBottom: '1px solid var(--color-border)', paddingBottom: '8px' }}>Network Allocation</h3>
+          {/* Column 2: Configured schedules table */}
+          <div className="card" style={{ padding: '16px' }}>
+            <h3 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '12px', borderBottom: '1px solid var(--color-border)', paddingBottom: '6px' }}>Configured Schedule</h3>
+            
+            {(!formData.schedules || formData.schedules.length === 0) ? (
+              <div style={{ padding: '36px 12px', textAlign: 'center', color: 'var(--color-text-secondary)', border: '1.5px dashed var(--color-border)', borderRadius: '6px' }}>
+                <Clock size={28} style={{ color: 'var(--color-text-muted)', marginBottom: '8px' }} />
+                <div style={{ fontSize: '12px' }}>No time slots configured. Displays will play standalone overrides or standby fallback loop.</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {formData.schedules.map((slot, idx) => {
+                  const names = slot.playlistIds.map(id => playlists.find(p => p.id === id)?.name).filter(Boolean).join(', ');
+                  return (
+                    <div 
+                      key={slot.id || idx}
+                      style={{
+                        padding: '10px 12px',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: '6px',
+                        backgroundColor: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '8px'
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: '12px' }}>
+                          {slot.startTime} – {slot.endTime}
+                          <span style={{ 
+                            fontSize: '9px', 
+                            color: 'var(--color-primary)', 
+                            backgroundColor: '#f0fdf4', 
+                            border: '1px solid #dcfce7', 
+                            padding: '1px 4px', 
+                            borderRadius: '3px', 
+                            marginLeft: '8px',
+                            fontWeight: 500 
+                          }}>
+                            {slot.scheduleType}
+                            {slot.scheduleType === 'Date Range' && ` (${slot.startDate} to ${slot.endDate})`}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={names}>
+                          Playlists: <strong>{names || 'None selected'}</strong>
+                        </div>
+                      </div>
 
-            <div className="form-group">
-              <label className="form-label">Allocated Branch <span className="required">*</span></label>
-              <select 
-                value={formData.branchId} 
-                onChange={(e) => setFormData(prev => ({ ...prev, branchId: e.target.value }))}
-                className={`form-control ${errors.branchId ? 'error' : ''}`}
-              >
-                <option value="">Select Branch</option>
-                {branches.map(b => (
-                  <option key={b.id} value={b.id}>{b.name} ({b.status})</option>
-                ))}
-              </select>
-              {errors.branchId && <span className="form-error">{errors.branchId}</span>}
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Display Network Group</label>
-              <select 
-                value={formData.groupId} 
-                onChange={(e) => setFormData(prev => ({ ...prev, groupId: e.target.value }))}
-                className="form-control"
-              >
-                <option value="">None (Standalone)</option>
-                {groups.map(g => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Playlist Override (Priority 1)</label>
-              <select 
-                value={formData.playlistId} 
-                onChange={(e) => setFormData(prev => ({ ...prev, playlistId: e.target.value }))}
-                className="form-control"
-              >
-                <option value="">No Override (Inherit Group Loop)</option>
-                {playlists.filter(p => p.status === 'Active').map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button 
+                          type="button" 
+                          onClick={() => handleEditSlot(idx)} 
+                          className="btn btn-outline" 
+                          style={{ height: '24px', width: '24px', padding: 0 }}
+                          title="Edit slot"
+                        >
+                          <Edit2 size={12} />
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => handleDeleteSlot(idx)} 
+                          className="btn btn-outline" 
+                          style={{ height: '24px', width: '24px', padding: 0, borderColor: 'var(--color-error)' }}
+                          title="Remove slot"
+                        >
+                          <Trash2 size={12} style={{ color: 'var(--color-error)' }} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -704,6 +1086,59 @@ const Devices = () => {
                 <button onClick={() => setFilterOpen(false)} className="btn btn-outline">Cancel</button>
                 <button onClick={() => setFilterOpen(false)} className="btn btn-primary">Apply</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unsaved changes warning modal */}
+      {unsavedModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-container size-sm" style={{ padding: '4px' }}>
+            <div className="modal-header" style={{ borderBottom: 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-warning)' }}>
+                <AlertTriangle size={20} />
+                <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Unsaved Changes</h3>
+              </div>
+              <button onClick={() => setUnsavedModalOpen(false)} className="modal-close-btn">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ padding: '0 24px 16px 24px' }}>
+              <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+                You have unsaved changes. What would you like to do?
+              </p>
+            </div>
+            <div className="modal-footer" style={{ borderTop: 'none', padding: '16px 24px', flexDirection: 'column', gap: '8px', alignItems: 'stretch' }}>
+              <button 
+                onClick={() => {
+                  const success = handleSaveTV();
+                  if (success) {
+                    setUnsavedModalOpen(false);
+                  }
+                }} 
+                className="btn btn-primary"
+                style={{ width: '100%' }}
+              >
+                Save & Go Back
+              </button>
+              <button 
+                onClick={() => {
+                  setUnsavedModalOpen(false);
+                  setViewState('list');
+                }} 
+                className="btn btn-secondary"
+                style={{ width: '100%' }}
+              >
+                Go Back Without Saving
+              </button>
+              <button 
+                onClick={() => setUnsavedModalOpen(false)} 
+                className="btn btn-outline"
+                style={{ width: '100%', borderColor: 'transparent' }}
+              >
+                Continue Editing
+              </button>
             </div>
           </div>
         </div>

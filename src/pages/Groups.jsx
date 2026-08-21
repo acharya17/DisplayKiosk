@@ -46,6 +46,7 @@ const Groups = () => {
   };
   const [formData, setFormData] = useState(initialGroupForm);
   const [errors, setErrors] = useState({});
+  const [unsavedModalOpen, setUnsavedModalOpen] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -93,16 +94,55 @@ const Groups = () => {
     return Object.keys(tempErrors).length === 0;
   };
 
+  const hasUnsavedChanges = () => {
+    if (viewState === 'add') {
+      return (
+        formData.name !== '' ||
+        formData.description !== '' ||
+        formData.playlistId !== '' ||
+        formData.associatedTvIds?.length > 0
+      );
+    }
+    if (viewState === 'edit') {
+      const original = groups.find(g => g.id === formData.id);
+      if (!original) return false;
+      const linkedTvs = tvs.filter(t => t.groupId === original.id).map(t => t.id);
+      return (
+        formData.name !== original.name ||
+        formData.description !== original.description ||
+        formData.playlistId !== original.playlistId ||
+        formData.status !== original.status ||
+        JSON.stringify(formData.associatedTvIds || []) !== JSON.stringify(linkedTvs)
+      );
+    }
+    return false;
+  };
+
+  const handleBack = () => {
+    if ((viewState === 'add' || viewState === 'edit') && hasUnsavedChanges()) {
+      setUnsavedModalOpen(true);
+    } else {
+      setViewState('list');
+    }
+  };
+
   const handleSaveGroup = () => {
-    if (!validateGroup()) return;
+    if (!validateGroup()) return false;
 
     if (viewState === 'edit') {
       const success = editGroup(formData.id, formData);
-      if (success) setViewState('list');
+      if (success) {
+        setViewState('list');
+        return true;
+      }
     } else {
       const success = addGroup(formData);
-      if (success) setViewState('list');
+      if (success) {
+        setViewState('list');
+        return true;
+      }
     }
+    return false;
   };
 
   const handleDeleteConfirm = () => {
@@ -191,7 +231,7 @@ const Groups = () => {
       <div className="breadcrumb">
         <span>TV Display</span>
         <ChevronRight size={12} className="breadcrumb-separator" />
-        <span className="breadcrumb-item active" style={{ cursor: viewState !== 'list' ? 'pointer' : 'default' }} onClick={() => setViewState('list')}>
+        <span className="breadcrumb-item active" style={{ cursor: viewState !== 'list' ? 'pointer' : 'default' }} onClick={handleBack}>
           Display Groups
         </span>
         {viewState === 'add' && (
@@ -219,7 +259,7 @@ const Groups = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {viewState !== 'list' && (
             <button 
-              onClick={() => setViewState('list')} 
+              onClick={handleBack} 
               className="btn btn-outline" 
               style={{ height: '36px', width: '36px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
               title="Back"
@@ -276,7 +316,6 @@ const Groups = () => {
               </div>
             ) : (
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button className="btn btn-secondary" onClick={() => setViewState('list')}>Cancel</button>
                 <button className="btn btn-primary" onClick={handleSaveGroup}>Save Display Group</button>
               </div>
             )
@@ -605,6 +644,58 @@ const Groups = () => {
                 <button onClick={() => setFilterOpen(false)} className="btn btn-outline">Cancel</button>
                 <button onClick={() => setFilterOpen(false)} className="btn btn-primary">Apply</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Unsaved changes warning modal */}
+      {unsavedModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-container size-sm" style={{ padding: '4px' }}>
+            <div className="modal-header" style={{ borderBottom: 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-warning)' }}>
+                <AlertTriangle size={20} />
+                <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Unsaved Changes</h3>
+              </div>
+              <button onClick={() => setUnsavedModalOpen(false)} className="modal-close-btn">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ padding: '0 24px 16px 24px' }}>
+              <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+                You have unsaved changes. What would you like to do?
+              </p>
+            </div>
+            <div className="modal-footer" style={{ borderTop: 'none', padding: '16px 24px', flexDirection: 'column', gap: '8px', alignItems: 'stretch' }}>
+              <button 
+                onClick={() => {
+                  const success = handleSaveGroup();
+                  if (success) {
+                    setUnsavedModalOpen(false);
+                  }
+                }} 
+                className="btn btn-primary"
+                style={{ width: '100%' }}
+              >
+                Save & Go Back
+              </button>
+              <button 
+                onClick={() => {
+                  setUnsavedModalOpen(false);
+                  setViewState('list');
+                }} 
+                className="btn btn-secondary"
+                style={{ width: '100%' }}
+              >
+                Go Back Without Saving
+              </button>
+              <button 
+                onClick={() => setUnsavedModalOpen(false)} 
+                className="btn btn-outline"
+                style={{ width: '100%', borderColor: 'transparent' }}
+              >
+                Continue Editing
+              </button>
             </div>
           </div>
         </div>

@@ -560,14 +560,14 @@ const Banners = () => {
         </div>
       ) : (
         /* ADD / EDIT SUB-PAGE FORM */
-        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '24px', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '20px', alignItems: 'start' }}>
           {/* Column 1: Config settings & Schedule */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div className="card" style={{ padding: '24px' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px', borderBottom: '1px solid var(--color-border)', paddingBottom: '8px' }}>Banner Settings</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="card" style={{ padding: '16px' }}>
+              <h3 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '12px', borderBottom: '1px solid var(--color-border)', paddingBottom: '6px' }}>Banner Settings</h3>
               
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div className="form-group">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">Banner Name <span className="required">*</span></label>
                   <input 
                     type="text" 
@@ -575,42 +575,38 @@ const Banners = () => {
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="e.g. Diwali Fest Special"
                     className={`form-control ${errors.name ? 'error' : ''}`}
+                    style={{ height: '34px' }}
                   />
                   {errors.name && <span className="form-error">{errors.name}</span>}
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">
-                    Display Duration (Seconds) {formData.mediaType === 'Image' && <span className="required">*</span>}
-                  </label>
-                  <input 
-                    type="number" 
-                    value={formData.mediaType === 'Video' ? '' : formData.duration} 
-                    onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
-                    disabled={formData.mediaType === 'Video'}
-                    placeholder={formData.mediaType === 'Video' ? 'Auto-detected from video' : 'e.g. 10'}
-                    className={`form-control ${errors.duration ? 'error' : ''}`}
-                  />
-                  {formData.mediaType === 'Video' && (
-                    <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '2px', display: 'block' }}>
-                      Video loop duration matches video length automatically.
-                    </span>
-                  )}
-                  {errors.duration && <span className="form-error">{errors.duration}</span>}
-                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: viewState === 'edit' ? '1fr 1fr' : '1fr', gap: '16px' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">
+                      Display Duration (Seconds) {formData.mediaType === 'Image' && <span className="required">*</span>}
+                    </label>
+                    <input 
+                      type="number" 
+                      value={formData.mediaType === 'Video' ? '' : formData.duration} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
+                      disabled={formData.mediaType === 'Video'}
+                      placeholder={formData.mediaType === 'Video' ? 'Auto-detected' : 'e.g. 10'}
+                      className={`form-control ${errors.duration ? 'error' : ''}`}
+                      style={{ height: '34px' }}
+                    />
+                    {errors.duration && <span className="form-error">{errors.duration}</span>}
+                  </div>
 
-                {/* Toggles Pane */}
-                <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '6px', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {/* Active Switch */}
+                  {/* Status Toggle Switch - ONLY when editing */}
                   {viewState === 'edit' && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8fafc', padding: '6px 12px', borderRadius: '4px', border: '1px solid var(--color-border)', height: '54px', alignSelf: 'end' }}>
                       <div>
-                        <div style={{ fontWeight: 600, fontSize: '12px' }}>Banner Status</div>
-                        <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                          {formData.status === 'Active' ? 'Active & available to loop' : 'Inactive / paused'}
-                        </div>
+                        <div style={{ fontWeight: 600, fontSize: '11px' }}>Banner Status</div>
+                        <span style={{ fontSize: '10px', color: 'var(--color-text-secondary)', textTransform: 'capitalize' }}>
+                          {formData.status.toLowerCase()}
+                        </span>
                       </div>
-                      <label className="switch-control">
+                      <label className="switch-control" style={{ margin: 0 }}>
                         <input 
                           type="checkbox" 
                           checked={formData.status === 'Active'} 
@@ -620,46 +616,20 @@ const Banners = () => {
                       </label>
                     </div>
                   )}
-
-                  {/* Permission Switch */}
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center', 
-                    borderTop: viewState === 'edit' ? '1px solid var(--color-border)' : 'none', 
-                    paddingTop: viewState === 'edit' ? '12px' : '0' 
-                  }}>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '12px' }}>TV Signage Permission</div>
-                      <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                        Status: <strong style={{ color: formData.tvPermission ? 'var(--color-success)' : 'var(--color-error)' }}>
-                          {formData.tvPermission ? 'Granted' : 'Revoked'}
-                        </strong>
-                      </div>
-                    </div>
-                    <label className="switch-control">
-                      <input 
-                        type="checkbox" 
-                        checked={formData.tvPermission} 
-                        onChange={(e) => setFormData(prev => ({ ...prev, tvPermission: e.target.checked }))}
-                      />
-                      <span className="switch-slider"></span>
-                    </label>
-                  </div>
                 </div>
               </div>
             </div>
 
             {/* Scheduling Card */}
-            <div className="card" style={{ padding: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div className="card" style={{ padding: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: '13px' }}>Configure Signage Schedule</div>
                   <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '2px' }}>
-                    Define dates, time restrictions, and repeats constraints.
+                    Define date & time loop constraints.
                   </div>
                 </div>
-                <label className="switch-control">
+                <label className="switch-control" style={{ margin: 0 }}>
                   <input 
                     type="checkbox" 
                     checked={formData.enableSchedule} 
@@ -669,82 +639,60 @@ const Banners = () => {
                 </label>
               </div>
 
-              {/* Collapsible schedule inputs */}
               {formData.enableSchedule && (
                 <div style={{ 
                   backgroundColor: '#f8fafc', 
                   border: '1px solid var(--color-border)', 
                   borderRadius: '6px', 
-                  padding: '16px', 
+                  padding: '12px', 
                   display: 'grid', 
-                  gridTemplateColumns: '1fr 1fr', 
-                  gap: '16px',
+                  gridTemplateColumns: '1fr 1fr 1fr 1fr', 
+                  gap: '12px',
+                  marginTop: '12px',
                   animation: 'fadeIn 0.2s ease-out'
                 }}>
-                  <div className="form-group">
-                    <label className="form-label">Start Date</label>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '10px' }}>Start Date</label>
                     <input 
                       type="date" 
                       value={formData.startDate} 
                       onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
                       className="form-control"
+                      style={{ height: '32px', fontSize: '12px' }}
                     />
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Start Time</label>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '10px' }}>Start Time</label>
                     <input 
                       type="time" 
                       value={formData.startTime} 
                       onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
                       className="form-control"
+                      style={{ height: '32px', fontSize: '12px' }}
                     />
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">End Date</label>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '10px' }}>End Date</label>
                     <input 
                       type="date" 
                       value={formData.endDate} 
                       onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
                       className="form-control"
+                      style={{ height: '32px', fontSize: '12px' }}
                     />
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">End Time</label>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '10px' }}>End Time</label>
                     <input 
                       type="time" 
                       value={formData.endTime} 
                       onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
                       className="form-control"
+                      style={{ height: '32px', fontSize: '12px' }}
                     />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Repeat Pattern</label>
-                    <select 
-                      value={formData.repeatOption} 
-                      onChange={(e) => setFormData(prev => ({ ...prev, repeatOption: e.target.value }))}
-                      className="form-control"
-                    >
-                      <option value="None">None (Once)</option>
-                      <option value="Daily">Daily loop repeat</option>
-                      <option value="Weekly">Weekly loops repeat</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Timezone</label>
-                    <select 
-                      value={formData.timezone} 
-                      onChange={(e) => setFormData(prev => ({ ...prev, timezone: e.target.value }))}
-                      className="form-control"
-                    >
-                      <option value="Asia/Kolkata (IST)">Asia/Kolkata (IST)</option>
-                      <option value="Asia/Dubai (GST)">Asia/Dubai (GST)</option>
-                      <option value="UTC">UTC Greenwich</option>
-                    </select>
                   </div>
                 </div>
               )}
@@ -752,28 +700,27 @@ const Banners = () => {
           </div>
 
           {/* Column 2: Media Dropzone & Preview Card */}
-          <div className="card" style={{ padding: '24px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '16px', borderBottom: '1px solid var(--color-border)', paddingBottom: '8px' }}>Media Asset</h3>
+          <div className="card" style={{ padding: '16px' }}>
+            <h3 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '12px', borderBottom: '1px solid var(--color-border)', paddingBottom: '6px' }}>Media Asset</h3>
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* Upload Zone container */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div 
                 style={{ 
                   border: errors.mediaFile ? '1.5px dashed var(--color-error)' : '1.5px dashed var(--color-border)',
                   borderRadius: '6px',
-                  padding: '24px 12px',
+                  padding: '16px 12px',
                   textAlign: 'center',
                   backgroundColor: '#f8fafc',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '12px',
+                  gap: '8px',
                   cursor: 'pointer',
-                  minHeight: '180px'
+                  minHeight: '120px'
                 }}
                 onClick={() => {
-                  if (uploadProgress !== 'done' && fileInputRef.current) {
+                  if (typeof uploadProgress !== 'number' && fileInputRef.current) {
                     fileInputRef.current.click();
                   }
                 }}
@@ -786,73 +733,72 @@ const Banners = () => {
                   onChange={handleFileSelection}
                 />
 
-                {uploadProgress === null && (
+                {uploadProgress === null && !formData.mediaUrl && (
                   <>
-                    <Upload size={28} style={{ color: 'var(--color-text-secondary)' }} />
+                    <Upload size={24} style={{ color: 'var(--color-text-secondary)' }} />
                     <div>
-                      <span style={{ fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '2px' }}>Choose image or video file</span>
+                      <span style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '2px' }}>Choose image or video file</span>
                       <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>Drag files here or click to browse (Max 15MB)</span>
                     </div>
                   </>
                 )}
 
                 {typeof uploadProgress === 'number' && (
-                  <div style={{ width: '100%', padding: '0 16px' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>Uploading creative file... {uploadProgress}%</div>
-                    <div style={{ height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ width: '100%', padding: '0 12px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 600, marginBottom: '4px' }}>Uploading... {uploadProgress}%</div>
+                    <div style={{ height: '4px', backgroundColor: '#e2e8f0', borderRadius: '2px', overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${uploadProgress}%`, backgroundColor: 'var(--color-primary)', transition: 'width 100ms ease' }} />
                     </div>
                   </div>
                 )}
 
-                {uploadProgress === 'done' && (
-                  <>
-                    <CheckCircle size={24} style={{ color: 'var(--color-success)' }} />
-                    <div>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-success)', display: 'block' }}>Media upload ready</span>
-                      <span style={{ fontSize: '10px', color: 'var(--color-text-secondary)', wordBreak: 'break-all' }}>{formData.mediaFileName}</span>
+                {formData.mediaUrl && uploadProgress === 'done' && (
+                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ 
+                      border: '1px solid var(--color-border)', 
+                      borderRadius: '6px', 
+                      overflow: 'hidden', 
+                      backgroundColor: '#0f172a', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      aspectRatio: '16/9',
+                      width: '100%',
+                      maxHeight: '160px'
+                    }}>
+                      {formData.mediaType === 'Video' ? (
+                        <video src={formData.mediaUrl} controls autoPlay muted style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                      ) : (
+                        <img src={formData.mediaUrl} alt="prev" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                      )}
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                      <button 
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); fileInputRef.current.click(); }} 
-                        className="btn btn-outline" 
-                        style={{ height: '26px', fontSize: '10px', padding: '0 8px' }}
-                      >
-                        Replace File
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); handleRemoveUploadedFile(); }} 
-                        className="btn btn-outline" 
-                        style={{ height: '26px', fontSize: '10px', padding: '0 8px', borderColor: 'var(--color-error)', color: 'var(--color-error)' }}
-                      >
-                        Remove
-                      </button>
+                    
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8fafc', padding: '6px 10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
+                      <span style={{ fontSize: '10px', color: 'var(--color-text-secondary)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '140px' }} title={formData.mediaFileName}>
+                        {formData.mediaFileName}
+                      </span>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button 
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); fileInputRef.current.click(); }} 
+                          className="btn btn-outline" 
+                          style={{ height: '24px', fontSize: '9px', padding: '0 6px' }}
+                        >
+                          Replace
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleRemoveUploadedFile(); }} 
+                          className="btn btn-outline" 
+                          style={{ height: '24px', fontSize: '9px', padding: '0 6px', borderColor: 'var(--color-error)', color: 'var(--color-error)' }}
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
-
-              {/* Inline Media Preview Panel */}
-              {formData.mediaUrl && uploadProgress === 'done' && (
-                <div style={{ 
-                  border: '1px solid var(--color-border)', 
-                  borderRadius: '6px', 
-                  overflow: 'hidden', 
-                  backgroundColor: '#0f172a', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  height: '180px'
-                }}>
-                  {formData.mediaType === 'Video' ? (
-                    <video src={formData.mediaUrl} controls autoPlay muted style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                  ) : (
-                    <img src={formData.mediaUrl} alt="prev" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                  )}
-                </div>
-              )}
             </div>
             {uploadError && <span style={{ color: 'var(--color-error)', fontSize: '11px', marginTop: '6px', display: 'block' }}>{uploadError}</span>}
             {errors.mediaFile && <span className="form-error" style={{ marginTop: '6px' }}>{errors.mediaFile}</span>}

@@ -394,14 +394,14 @@ export const AppProvider = ({ children }) => {
     const newTV = {
       ...tvData,
       id: newId,
-      connectionStatus: 'Unknown',
+      connectionStatus: 'Online', // Set to Online immediately upon registration
       lastSeen: new Date().toISOString(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     setTvs(prev => [...prev, newTV]);
     showToast('TV registered successfully', 'success');
-    return true;
+    return newId;
   };
 
   const editTV = (id, updatedFields) => {

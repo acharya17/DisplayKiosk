@@ -8,7 +8,7 @@ import {
 const TvPlayer = () => {
   const { tvId } = useParams();
   const navigate = useNavigate();
-  const { tvs, playlists, banners, defaultContent } = useApp();
+  const { tvs, playlists, banners, defaultContent, groups } = useApp();
 
   const [currentQueueIndex, setCurrentQueueIndex] = useState(() => {
     const cached = localStorage.getItem(`tv_queue_index_${tvId}`);
@@ -17,6 +17,15 @@ const TvPlayer = () => {
   const [isOffline, setIsOffline] = useState(false);
   const [simulateLoadError, setSimulateLoadError] = useState(false);
   const [showOverlay, setShowOverlay] = useState(true);
+  const [tick, setTick] = useState(0);
+
+  // Dynamic time-slot ticker (updates every 15s to check playlist transitions)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTick(t => t + 1);
+    }, 15000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Sync index to cache when index updates
   useEffect(() => {
@@ -31,105 +40,76 @@ const TvPlayer = () => {
   const tv = tvs.find(t => t.tvId === tvId);
   const isTVValid = tv && tv.status === 'Active';
 
-  // Rule 11 Calculation: Priority Playlist Assignment Resolution
-  const getPlaylistAssignment = () => {
-    if (!tv) return null;
-    
-    // Priority 1: Individual Override
-    if (tv.playlistId) {
-      return playlists.find(p => p.id === tv.playlistId);
-    }
-    
-    // Priority 2: Inherited from Group
-    if (tv.groupId) {
-      const gp = tvs.find(t => t.id === tv.id)?.groupId; // resolve group from tv record
-      const groupRecord = gp ? tvs : null; // fetch group record
-      // Search for group
-      const targetGroup = tvs.length ? tvs : null; // use state context
-    }
-    
-    // Fallback: Resolve manually
-    return null;
-  };
 
-  // Find assigned playlist
-  let assignedPlaylist = null;
-  if (tv) {
-    if (tv.playlistId) {
-      assignedPlaylist = playlists.find(p => p.id === tv.playlistId);
-    } else if (tv.groupId) {
-      const parentGroup = tvs; // resolve from context
-      // Search groups
-      const gp = tvs;
-    }
-  }
-
-  // Fallback group assignment check
-  if (!assignedPlaylist && tv && tv.groupId) {
-    // Look up parent group
-    const pg = playlists; // search group playlist
-  }
-
-  // Standard context search for active playlist
-  const activePlaylist = playlists.find(p => {
-    if (tv?.playlistId) return p.id === tv.playlistId;
-    if (tv?.groupId) {
-      // Find group central playlist
-      const targetGroup = tvs; // search
-    }
-    return false;
-  }) || (tv?.groupId ? playlists.find(p => {
-    // Fallback search group central playlist
-    const gp = tvs;
-    return false;
-  }) : null);
-
-  // Fallback search matching group central ID
-  const resolvedPlaylistId = tv?.playlistId || (tv?.groupId ? (playlists.length ? tvs.find(t => t.id === tv.id)?.groupId : null) : null);
-  // Find group playlist
-  let resolvedPlaylist = playlists.find(p => p.id === tv?.playlistId);
-  if (!resolvedPlaylist && tv?.groupId) {
-    const gp = tvs.find(t => t.id === tv.id)?.groupId;
-    // Find matching group
-    const groupRecord = gp ? tvs : null;
-  }
-
-  // Let's resolve the playlist cleanly:
-  const playlist = playlists.find(p => {
-    if (tv?.playlistId) return p.id === tv.playlistId;
-    if (tv?.groupId) {
-      const groupRecord = tvs; // search groups
-    }
-    return false;
-  });
-
-  // Calculate current eligible queue loop
-  const mockCurrentDate = new Date('2026-08-20T12:00:00Z');
 
   const getEligibleBanners = () => {
-    // If we resolved no playlist, return empty
-    const activePl = playlists.find(p => p.id === tv?.playlistId) || playlists.find(p => {
-      if (tv?.groupId) {
-        // Resolve from group playlist
-        const gp = tvs;
+    if (!tv) return [];
+
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const convertToMinutes = (timeStr) => {
+      const [h, m] = timeStr.split(':').map(Number);
+      return h * 60 + m;
+    };
+
+    let matchedPlaylists = [];
+
+    // 1. Check TV custom schedules (Time slot checks)
+    if (tv.schedules && tv.schedules.length > 0) {
+      const matchingSlot = tv.schedules.find(slot => {
+        const start = convertToMinutes(slot.startTime);
+        const end = convertToMinutes(slot.endTime);
+        const matchesTime = currentMinutes >= start && currentMinutes <= end;
+        if (!matchesTime) return false;
+
+        // If Date Range is selected, check date constraints
+        if (slot.scheduleType === 'Date Range') {
+          const todayStr = now.toISOString().split('T')[0];
+          return todayStr >= slot.startDate && todayStr <= slot.endDate;
+        }
+        return true;
+      });
+
+      if (matchingSlot) {
+        const ids = matchingSlot.playlistIds || (matchingSlot.playlistId ? [matchingSlot.playlistId] : []);
+        matchedPlaylists = ids.map(id => playlists.find(p => p.id === id)).filter(p => p && p.status === 'Active');
       }
-      return false;
+    }
+
+    // 2. Fallback to Priority 1 override
+    if (matchedPlaylists.length === 0 && tv.playlistId) {
+      const pl = playlists.find(p => p.id === tv.playlistId);
+      if (pl && pl.status === 'Active') matchedPlaylists = [pl];
+    }
+
+    // 3. Fallback to Priority 2 Inherited Group playlist
+    if (matchedPlaylists.length === 0 && tv.groupId) {
+      const gp = groups.find(g => g.id === tv.groupId);
+      if (gp && gp.playlistId) {
+        const pl = playlists.find(p => p.id === gp.playlistId);
+        if (pl && pl.status === 'Active') matchedPlaylists = [pl];
+      }
+    }
+
+    if (matchedPlaylists.length === 0) return [];
+
+    // Aggregate banners from all resolved playlists
+    const allMapped = [];
+    matchedPlaylists.forEach(pl => {
+      if (pl.banners) {
+        pl.banners.forEach(config => {
+          const fullBanner = banners.find(b => b.id === config.bannerId);
+          allMapped.push({ config, fullBanner });
+        });
+      }
     });
 
-    // To be safe, look up any active playlist mapped to this TV or its group
-    const targetPlaylist = playlists.find(p => p.id === tv?.playlistId);
-    if (!targetPlaylist) return [];
-
-    // Filter banners by scheduling constraints
-    return targetPlaylist.banners
-      .map(config => {
-        const fullBanner = banners.find(b => b.id === config.bannerId);
-        return { config, fullBanner };
-      })
+    const mockCurrentDate = new Date('2026-08-20T12:00:00Z');
+    return allMapped
       .filter(({ config, fullBanner }) => {
-        if (!fullBanner || fullBanner.status !== 'Active') return false;
+        if (!fullBanner || fullBanner.status !== 'Active' || !fullBanner.tvPermission) return false;
         
-        // Schedule eligibility limits
         if (config.scheduleType === 'Scheduled') {
           const startDateTime = new Date(`${config.startDate}T${config.startTime || '00:00'}`);
           const endDateTime = new Date(`${config.endDate}T${config.endTime || '23:59'}`);
