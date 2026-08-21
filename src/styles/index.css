@@ -366,8 +366,15 @@ a {
   padding: 0 var(--spacing-sm);
   outline: none;
   font-size: 13px;
+  text-align: left;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   background-color: var(--color-surface);
+}
+
+textarea.form-control {
+  height: auto;
+  padding: var(--spacing-sm);
+  line-height: 1.5;
 }
 
 .form-control:focus {

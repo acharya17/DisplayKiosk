@@ -1,7 +1,8 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { 
   initialBusiness, initialBranches, initialBanners, initialDefaultContent, 
-  initialPlaylists, initialTVs, initialGroups, initialCategories, initialProducts 
+  initialPlaylists, initialTVs, initialGroups, initialCategories, initialProducts,
+  initialCustomisations, initialCombos, initialTaxes, initialOffers
 } from '../data/mockData';
 
 const AppContext = createContext();
@@ -57,25 +58,30 @@ export const AppProvider = ({ children }) => {
     const cached = localStorage.getItem('kiosk_products');
     if (cached) {
       const parsed = JSON.parse(cached);
-      return parsed.map((p, idx) => {
-        let updated = { ...p };
-        if (!p.productId) {
-          const fallback = p.id ? p.id.toUpperCase() : `PROD-${idx + 1}`;
-          updated.productId = fallback;
-        }
-        if (p.availability === 'Available') {
-          updated.availability = 'In Stock';
-        } else if (p.availability === 'Unavailable') {
-          updated.availability = 'Out of Stock';
-        }
-        if (updated.availability === 'In Stock' && (updated.stockQty === undefined || updated.stockQty === null)) {
-          updated.stockQty = 15; // default initial stock
-        }
-        if (updated.displayPrice === undefined || updated.displayPrice === null) {
-          updated.displayPrice = updated.price;
-        }
-        return updated;
-      });
+      // If cached products still contain the old customisations array, flush it
+      if (parsed.length > 0 && Array.isArray(parsed[0].customisations)) {
+        localStorage.removeItem('kiosk_products');
+      } else {
+        return parsed.map((p, idx) => {
+          let updated = { ...p };
+          if (!p.productId) {
+            const fallback = p.id ? p.id.toUpperCase() : `PROD-${idx + 1}`;
+            updated.productId = fallback;
+          }
+          if (p.availability === 'Available') {
+            updated.availability = 'In Stock';
+          } else if (p.availability === 'Unavailable') {
+            updated.availability = 'Out of Stock';
+          }
+          if (updated.availability === 'In Stock' && (updated.stockQty === undefined || updated.stockQty === null)) {
+            updated.stockQty = 15; // default initial stock
+          }
+          if (updated.displayPrice === undefined || updated.displayPrice === null) {
+            updated.displayPrice = updated.price;
+          }
+          return updated;
+        });
+      }
     }
     // inject default stock values to initial mock data if missing
     return initialProducts.map(p => ({
@@ -84,9 +90,49 @@ export const AppProvider = ({ children }) => {
       stockQty: p.availability === 'In Stock' ? (p.stockQty !== undefined ? p.stockQty : 15) : 0
     }));
   });
+
+  const [customisations, setCustomisations] = useState(() => {
+    const cached = localStorage.getItem('kiosk_customisations_master');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      // Flush if type field is missing or if cached data count doesn't match current dataset
+      if (parsed.length > 0 && (parsed[0].type === undefined || parsed.length !== initialCustomisations.length)) {
+        localStorage.removeItem('kiosk_customisations_master');
+      } else {
+        return parsed;
+      }
+    }
+    return initialCustomisations;
+  });
+
+  const [combos, setCombos] = useState(() => {
+    const cached = localStorage.getItem('kiosk_combos');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      return parsed;
+    }
+    return initialCombos;
+  });
+
+  const [taxes, setTaxes] = useState(() => {
+    const cached = localStorage.getItem('kiosk_taxes');
+    if (cached) return JSON.parse(cached);
+    return initialTaxes;
+  });
+
+  const [offers, setOffers] = useState(() => {
+    const cached = localStorage.getItem('kiosk_offers');
+    if (cached) return JSON.parse(cached);
+    return initialOffers;
+  });
+
   const [toasts, setToasts] = useState([]);
 
   // Auto-sync state variables to localStorage when changed
+  useEffect(() => {
+    localStorage.setItem('kiosk_customisations_master', JSON.stringify(customisations));
+  }, [customisations]);
+
   useEffect(() => {
     localStorage.setItem('kiosk_business', JSON.stringify(business));
   }, [business]);
@@ -122,6 +168,18 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('kiosk_products', JSON.stringify(products));
   }, [products]);
+
+  useEffect(() => {
+    localStorage.setItem('kiosk_combos', JSON.stringify(combos));
+  }, [combos]);
+
+  useEffect(() => {
+    localStorage.setItem('kiosk_taxes', JSON.stringify(taxes));
+  }, [taxes]);
+
+  useEffect(() => {
+    localStorage.setItem('kiosk_offers', JSON.stringify(offers));
+  }, [offers]);
 
   // Toast helper
   const showToast = (message, type = 'success') => {
@@ -637,6 +695,13 @@ export const AppProvider = ({ children }) => {
   };
 
   const deleteProduct = (id) => {
+    // Safety check: prevent deletion if product is used in any combo
+    const usedInCombos = combos.filter(c => c.items.some(item => item.productId === id));
+    if (usedInCombos.length > 0) {
+      const comboNames = usedInCombos.map(c => c.name).join(', ');
+      showToast(`Cannot delete: Product is used in combo(s): ${comboNames}`, 'error');
+      return false;
+    }
     setProducts(prev => prev.filter(p => p.id !== id));
     showToast('Product deleted successfully', 'success');
     return true;
@@ -649,6 +714,141 @@ export const AppProvider = ({ children }) => {
       updatedAt: new Date().toISOString()
     } : p));
     showToast(`Product ${newStatus === 'Active' ? 'activated' : 'deactivated'} successfully`, 'success');
+  };
+
+  const addCustomisation = (optData) => {
+    const newId = `opt-${Date.now()}`;
+    const newOpt = {
+      ...optData,
+      id: newId,
+      status: 'Active'
+    };
+    setCustomisations(prev => [...prev, newOpt]);
+    showToast('Customisation option created successfully', 'success');
+    return true;
+  };
+
+  const editCustomisation = (id, updatedFields) => {
+    setCustomisations(prev => prev.map(c => c.id === id ? {
+      ...c,
+      ...updatedFields
+    } : c));
+    showToast('Customisation option updated successfully', 'success');
+    return true;
+  };
+
+  const deleteCustomisation = (id) => {
+    setCustomisations(prev => prev.filter(c => c.id !== id));
+    setProducts(prev => prev.map(p => p.customisationId === id ? { ...p, customisationId: "" } : p));
+    showToast('Customisation deleted successfully', 'success');
+    return true;
+  };
+
+  const setCustomisationStatus = (id, newStatus) => {
+    setCustomisations(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c));
+    showToast(`Customisation ${newStatus === 'Active' ? 'activated' : 'deactivated'} successfully`, 'success');
+  };
+
+  // ─── Combo CRUD ─────────────────────────
+  const addCombo = (comboData) => {
+    const newId = `combo-${Date.now()}`;
+    const now = new Date().toISOString();
+    const newCombo = {
+      ...comboData,
+      id: newId,
+      status: 'Active',
+      createdAt: now,
+      updatedAt: now
+    };
+    setCombos(prev => [...prev, newCombo]);
+    showToast('Combo created successfully', 'success');
+    return true;
+  };
+
+  const editCombo = (id, updatedFields) => {
+    setCombos(prev => prev.map(c => c.id === id ? {
+      ...c,
+      ...updatedFields,
+      updatedAt: new Date().toISOString()
+    } : c));
+    showToast('Combo updated successfully', 'success');
+    return true;
+  };
+
+  const deleteCombo = (id) => {
+    setCombos(prev => prev.filter(c => c.id !== id));
+    showToast('Combo deleted successfully', 'success');
+    return true;
+  };
+
+  const setComboStatus = (id, newStatus) => {
+    setCombos(prev => prev.map(c => c.id === id ? {
+      ...c,
+      status: newStatus,
+      updatedAt: new Date().toISOString()
+    } : c));
+    showToast(`Combo ${newStatus === 'Active' ? 'activated' : 'deactivated'} successfully`, 'success');
+  };
+
+  const setComboAvailability = (id, newAvailability) => {
+    setCombos(prev => prev.map(c => c.id === id ? {
+      ...c,
+      availability: newAvailability,
+      updatedAt: new Date().toISOString()
+    } : c));
+    showToast(`Combo marked as ${newAvailability}`, 'success');
+  };
+
+  // ─── Tax CRUD ─────────────────────────────
+  const addTax = (taxData) => {
+    const newId = `tax-${Date.now()}`;
+    const now = new Date().toISOString();
+    setTaxes(prev => [...prev, { ...taxData, id: newId, status: 'Active', createdAt: now, updatedAt: now }]);
+    showToast('Tax created successfully', 'success');
+    return true;
+  };
+
+  const editTax = (id, updatedFields) => {
+    setTaxes(prev => prev.map(t => t.id === id ? { ...t, ...updatedFields, updatedAt: new Date().toISOString() } : t));
+    showToast('Tax updated successfully', 'success');
+    return true;
+  };
+
+  const deleteTax = (id) => {
+    setTaxes(prev => prev.filter(t => t.id !== id));
+    showToast('Tax deleted successfully', 'success');
+    return true;
+  };
+
+  const setTaxStatus = (id, newStatus) => {
+    setTaxes(prev => prev.map(t => t.id === id ? { ...t, status: newStatus, updatedAt: new Date().toISOString() } : t));
+    showToast(`Tax ${newStatus === 'Active' ? 'activated' : 'deactivated'} successfully`, 'success');
+  };
+
+  // ─── Offer CRUD ───────────────────────────
+  const addOffer = (offerData) => {
+    const newId = `offer-${Date.now()}`;
+    const now = new Date().toISOString();
+    setOffers(prev => [...prev, { ...offerData, id: newId, status: 'Active', createdAt: now, updatedAt: now }]);
+    showToast('Offer created successfully', 'success');
+    return true;
+  };
+
+  const editOffer = (id, updatedFields) => {
+    setOffers(prev => prev.map(o => o.id === id ? { ...o, ...updatedFields, updatedAt: new Date().toISOString() } : o));
+    showToast('Offer updated successfully', 'success');
+    return true;
+  };
+
+  const deleteOffer = (id) => {
+    setOffers(prev => prev.filter(o => o.id !== id));
+    showToast('Offer deleted successfully', 'success');
+    return true;
+  };
+
+  const setOfferStatus = (id, newStatus) => {
+    setOffers(prev => prev.map(o => o.id === id ? { ...o, status: newStatus, updatedAt: new Date().toISOString() } : o));
+    showToast(`Offer ${newStatus === 'Active' ? 'activated' : 'deactivated'} successfully`, 'success');
   };
 
   return (
@@ -701,7 +901,28 @@ export const AppProvider = ({ children }) => {
       addProduct,
       editProduct,
       deleteProduct,
-      setProductStatus
+      setProductStatus,
+      customisations,
+      addCustomisation,
+      editCustomisation,
+      deleteCustomisation,
+      setCustomisationStatus,
+      combos,
+      addCombo,
+      editCombo,
+      deleteCombo,
+      setComboStatus,
+      setComboAvailability,
+      taxes,
+      addTax,
+      editTax,
+      deleteTax,
+      setTaxStatus,
+      offers,
+      addOffer,
+      editOffer,
+      deleteOffer,
+      setOfferStatus
     }}>
       {children}
     </AppContext.Provider>

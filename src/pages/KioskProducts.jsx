@@ -18,7 +18,8 @@ const KioskProducts = () => {
     addProduct,
     editProduct,
     deleteProduct,
-    setProductStatus
+    setProductStatus,
+    customisations
   } = useApp();
 
   const catFileInputRef = useRef(null);
@@ -69,7 +70,8 @@ const KioskProducts = () => {
     availability: 'In Stock',
     stockQty: 15,
     image: '',
-    status: 'Active'
+    status: 'Active',
+    customisationId: ''
   };
 
   const [categoryForm, setCategoryForm] = useState(initialCategoryForm);
@@ -153,7 +155,8 @@ const KioskProducts = () => {
         ...initialProductForm,
         productId: 'PROD-' + Math.random().toString(36).substr(2, 6).toUpperCase(),
         categoryId: categories.filter(c => c.status === 'Active')[0]?.id || '',
-        image: ''
+        image: '',
+        customisationId: ''
       });
     }
     setViewState('add');
@@ -165,7 +168,10 @@ const KioskProducts = () => {
       setCategoryForm({ ...item });
       setUploadProgress(item.image ? 'done' : null);
     } else {
-      setProductForm({ ...item });
+      setProductForm({
+        ...item,
+        customisationId: item.customisationId || ''
+      });
       setUploadProgress(item.image ? 'done' : null);
     }
     setUploadError('');
@@ -684,9 +690,12 @@ const KioskProducts = () => {
               </div>
 
               <div>
-                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Phase 2: Add-ons / Modifiers</div>
-                <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', fontStyle: 'italic', marginTop: '4px' }}>
-                  No customisations configured yet. Modifiers and variants can be set up in Phase 2.
+                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Customisation Assigned</div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-primary)', marginTop: '4px' }}>
+                  {(() => {
+                    const matched = customisations.find(c => c.id === selectedProduct.customisationId);
+                    return matched ? matched.name : 'None';
+                  })()}
                 </div>
               </div>
             </div>
@@ -1013,6 +1022,21 @@ const KioskProducts = () => {
                         rows={2}
                         style={{ resize: 'none', fontSize: '12px' }}
                       />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label">Customisation</label>
+                      <select 
+                        value={productForm.customisationId || ''}
+                        onChange={(e) => setProductForm(prev => ({ ...prev, customisationId: e.target.value }))}
+                        className="form-control"
+                        style={{ height: '34px' }}
+                      >
+                        <option value="">Select Customisation</option>
+                        {customisations.filter(c => c.status === 'Active' || c.id === productForm.customisationId).map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
                     </div>
 
                     {viewState === 'edit' && (

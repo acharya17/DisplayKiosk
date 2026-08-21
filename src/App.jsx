@@ -12,6 +12,9 @@ import Devices from './pages/Devices';
 import Groups from './pages/Groups';
 import TvPlayer from './pages/TvPlayer';
 import KioskProducts from './pages/KioskProducts';
+import KioskCustomisations from './pages/KioskCustomisations';
+import KioskCombos from './pages/KioskCombos';
+import KioskTaxOffers from './pages/KioskTaxOffers';
 import PlaceholderPage from './pages/PlaceholderPage';
 
 // Import CSS Styles
@@ -42,9 +45,9 @@ function App() {
             
             {/* Module 2 Placeholders */}
             <Route path="kiosk-products" element={<KioskProducts />} />
-            <Route path="kiosk-customisations" element={<PlaceholderPage />} />
-            <Route path="kiosk-combos" element={<PlaceholderPage />} />
-            <Route path="kiosk-discounts" element={<PlaceholderPage />} />
+            <Route path="kiosk-customisations" element={<KioskCustomisations />} />
+            <Route path="kiosk-combos" element={<KioskCombos />} />
+            <Route path="kiosk-discounts" element={<KioskTaxOffers />} />
             <Route path="kiosks" element={<PlaceholderPage />} />
             <Route path="kiosk-orders" element={<PlaceholderPage />} />
             <Route path="kiosk-settings" element={<PlaceholderPage />} />

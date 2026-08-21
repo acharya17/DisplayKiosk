@@ -224,7 +224,8 @@ export const initialProducts = [
     availability: "In Stock",
     status: "Active",
     createdAt: "2026-08-20T10:00:00Z",
-    updatedAt: "2026-08-20T10:00:00Z"
+    updatedAt: "2026-08-20T10:00:00Z",
+    customisationId: "opt-3"
   },
   {
     id: "prod-2",
@@ -238,7 +239,8 @@ export const initialProducts = [
     availability: "In Stock",
     status: "Active",
     createdAt: "2026-08-20T10:05:00Z",
-    updatedAt: "2026-08-20T10:05:00Z"
+    updatedAt: "2026-08-20T10:05:00Z",
+    customisationId: "opt-3"
   },
   {
     id: "prod-3",
@@ -252,7 +254,8 @@ export const initialProducts = [
     availability: "In Stock",
     status: "Active",
     createdAt: "2026-08-20T10:10:00Z",
-    updatedAt: "2026-08-20T10:10:00Z"
+    updatedAt: "2026-08-20T10:10:00Z",
+    customisationId: "opt-3"
   },
   {
     id: "prod-4",
@@ -266,7 +269,8 @@ export const initialProducts = [
     availability: "In Stock",
     status: "Active",
     createdAt: "2026-08-20T10:15:00Z",
-    updatedAt: "2026-08-20T10:15:00Z"
+    updatedAt: "2026-08-20T10:15:00Z",
+    customisationId: "opt-2"
   },
   {
     id: "prod-5",
@@ -280,9 +284,205 @@ export const initialProducts = [
     availability: "Out of Stock",
     status: "Active",
     createdAt: "2026-08-20T10:20:00Z",
-    updatedAt: "2026-08-20T10:20:00Z"
+    updatedAt: "2026-08-20T10:20:00Z",
+    customisationId: ""
   }
 ];
 
+export const initialCustomisations = [
+  { id: "opt-1", name: "Extra Cheese", description: "Add extra cheese topping to your order.", type: "Add-on", price: 30, status: "Active" },
+  { id: "opt-2", name: "Spicy Sauce", description: "Add spicy sauce to your order.", type: "Add-on", price: 15, status: "Active" },
+  { id: "opt-3", name: "Extra Topping", description: "Add an extra topping of your choice.", type: "Add-on", price: 40, status: "Active" },
+  { id: "opt-4", name: "Double Cheese", description: "Double the cheese on your order.", type: "Add-on", price: 50, status: "Active" },
+  { id: "opt-5", name: "Extra Sauce", description: "Add extra sauce to your order.", type: "Add-on", price: 10, status: "Active" },
+  { id: "opt-6", name: "Crispy Onion", description: "Add crispy fried onion rings.", type: "Add-on", price: 20, status: "Active" },
+  { id: "opt-7", name: "Fresh Cream", description: "Add a dollop of fresh cream.", type: "Add-on", price: 25, status: "Active" },
+  { id: "opt-8", name: "Extra Mayo", description: "Add extra mayonnaise.", type: "Add-on", price: 10, status: "Active" },
+  { id: "opt-9", name: "Garlic Sauce", description: "Add garlic sauce to your order.", type: "Add-on", price: 15, status: "Active" },
+  { id: "opt-10", name: "Peri Peri", description: "Add peri peri seasoning.", type: "Modifier", price: 10, status: "Active" },
+  { id: "opt-11", name: "Extra Chicken", description: "Add extra chicken to your order.", type: "Add-on", price: 60, status: "Active" },
+  { id: "opt-12", name: "Extra Fries", description: "Add a side of extra fries.", type: "Add-on", price: 35, status: "Active" },
+  { id: "opt-13", name: "No Onion", description: "Remove onion from your order.", type: "Modifier", price: 0, status: "Active" },
+  { id: "opt-14", name: "No Cheese", description: "Remove cheese from your order.", type: "Modifier", price: 0, status: "Active" },
+  { id: "opt-15", name: "Less Spicy", description: "Prepare with reduced spice level.", type: "Modifier", price: 0, status: "Active" }
+];
 
+export const initialCombos = [
+  {
+    id: "combo-1",
+    name: "Biryani Feast",
+    description: "Aromatic Chicken Dum Biryani served with a refreshing Lemon Soda.",
+    image: "",
+    items: [
+      { productId: "prod-1", quantity: 1 },
+      { productId: "prod-5", quantity: 1 }
+    ],
+    comboPrice: 219,
+    availability: "Available",
+    status: "Active",
+    createdAt: "2026-08-21T10:00:00Z",
+    updatedAt: "2026-08-21T10:00:00Z"
+  },
+  {
+    id: "combo-2",
+    name: "Family Biryani Pack",
+    description: "Two Chicken Dum Biryanis with two Lemon Sodas for the family.",
+    image: "",
+    items: [
+      { productId: "prod-1", quantity: 2 },
+      { productId: "prod-5", quantity: 2 }
+    ],
+    comboPrice: 449,
+    availability: "Available",
+    status: "Active",
+    createdAt: "2026-08-21T10:05:00Z",
+    updatedAt: "2026-08-21T10:05:00Z"
+  },
+  {
+    id: "combo-3",
+    name: "Mutton Special",
+    description: "Premium Mutton Biryani paired with Cold Coffee.",
+    image: "",
+    items: [
+      { productId: "prod-2", quantity: 1 },
+      { productId: "prod-4", quantity: 1 }
+    ],
+    comboPrice: 299,
+    availability: "Available",
+    status: "Active",
+    createdAt: "2026-08-21T10:10:00Z",
+    updatedAt: "2026-08-21T10:10:00Z"
+  },
+  {
+    id: "combo-4",
+    name: "Veg Delight Combo",
+    description: "Veg Biryani with a chilled Lemon Soda.",
+    image: "",
+    items: [
+      { productId: "prod-3", quantity: 1 },
+      { productId: "prod-5", quantity: 1 }
+    ],
+    comboPrice: 179,
+    availability: "Unavailable",
+    status: "Active",
+    createdAt: "2026-08-21T10:15:00Z",
+    updatedAt: "2026-08-21T10:15:00Z"
+  },
+  {
+    id: "combo-5",
+    name: "Coffee Break",
+    description: "Cold Coffee paired with a refreshing Lemon Soda.",
+    image: "",
+    items: [
+      { productId: "prod-4", quantity: 1 },
+      { productId: "prod-5", quantity: 1 }
+    ],
+    comboPrice: 119,
+    availability: "Available",
+    status: "Inactive",
+    createdAt: "2026-08-21T10:20:00Z",
+    updatedAt: "2026-08-21T10:20:00Z"
+  }
+];
 
+export const initialTaxes = [
+  {
+    id: "tax-1",
+    name: "GST 5%",
+    rate: 5,
+    applicability: "All Products",
+    selectedCategories: [],
+    selectedProducts: [],
+    selectedCombos: [],
+    status: "Active",
+    createdAt: "2026-08-21T11:00:00Z",
+    updatedAt: "2026-08-21T11:00:00Z"
+  },
+  {
+    id: "tax-2",
+    name: "Service Tax",
+    rate: 2.5,
+    applicability: "Selected Categories",
+    selectedCategories: ["cat-1"],
+    selectedProducts: [],
+    selectedCombos: [],
+    status: "Active",
+    createdAt: "2026-08-21T11:05:00Z",
+    updatedAt: "2026-08-21T11:05:00Z"
+  },
+  {
+    id: "tax-3",
+    name: "Packaging Charge",
+    rate: 1,
+    applicability: "Selected Combos",
+    selectedCategories: [],
+    selectedProducts: [],
+    selectedCombos: ["combo-1", "combo-2"],
+    status: "Inactive",
+    createdAt: "2026-08-21T11:10:00Z",
+    updatedAt: "2026-08-21T11:10:00Z"
+  }
+];
+
+export const initialOffers = [
+  {
+    id: "offer-1",
+    name: "Lunch Special",
+    discountType: "Percentage",
+    discountValue: 10,
+    applicability: "Selected Categories",
+    selectedCategories: ["cat-1"],
+    selectedProducts: [],
+    selectedCombos: [],
+    startDate: "2026-08-20",
+    endDate: "2026-09-20",
+    status: "Active",
+    createdAt: "2026-08-21T12:00:00Z",
+    updatedAt: "2026-08-21T12:00:00Z"
+  },
+  {
+    id: "offer-2",
+    name: "Beverage Discount",
+    discountType: "Fixed Amount",
+    discountValue: 15,
+    applicability: "Selected Products",
+    selectedCategories: [],
+    selectedProducts: ["prod-4", "prod-5"],
+    selectedCombos: [],
+    startDate: "2026-08-21",
+    endDate: "2026-08-31",
+    status: "Active",
+    createdAt: "2026-08-21T12:05:00Z",
+    updatedAt: "2026-08-21T12:05:00Z"
+  },
+  {
+    id: "offer-3",
+    name: "Weekend Combo Deal",
+    discountType: "Percentage",
+    discountValue: 15,
+    applicability: "Selected Combos",
+    selectedCategories: [],
+    selectedProducts: [],
+    selectedCombos: ["combo-1", "combo-3"],
+    startDate: "2026-08-22",
+    endDate: "2026-08-24",
+    status: "Active",
+    createdAt: "2026-08-21T12:10:00Z",
+    updatedAt: "2026-08-21T12:10:00Z"
+  },
+  {
+    id: "offer-4",
+    name: "Grand Opening",
+    discountType: "Percentage",
+    discountValue: 20,
+    applicability: "All Products",
+    selectedCategories: [],
+    selectedProducts: [],
+    selectedCombos: [],
+    startDate: "2026-08-15",
+    endDate: "2026-08-18",
+    status: "Inactive",
+    createdAt: "2026-08-21T12:15:00Z",
+    updatedAt: "2026-08-21T12:15:00Z"
+  }
+];
