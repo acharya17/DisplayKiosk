@@ -2,7 +2,8 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { 
   initialBusiness, initialBranches, initialBanners, initialDefaultContent, 
   initialPlaylists, initialTVs, initialGroups, initialCategories, initialProducts,
-  initialCustomisations, initialCombos, initialTaxes, initialOffers
+  initialCustomisations, initialCombos, initialTaxes, initialOffers, initialKiosks,
+  initialOrders, initialPayments
 } from '../data/mockData';
 
 const AppContext = createContext();
@@ -91,15 +92,18 @@ export const AppProvider = ({ children }) => {
     }));
   });
 
-  // Force cache flush for Phase 3 & 4 data schemas
+  // Force cache flush for Phase 3, 4, 5 & 6 data schemas
   useEffect(() => {
-    const marker = localStorage.getItem('kiosk_p3_p4_marker_v3');
+    const marker = localStorage.getItem('kiosk_p3_p4_p5_p6_marker');
     if (!marker) {
       localStorage.removeItem('kiosk_combos');
       localStorage.removeItem('kiosk_taxes');
       localStorage.removeItem('kiosk_offers');
+      localStorage.removeItem('kiosk_kiosks');
+      localStorage.removeItem('kiosk_orders');
+      localStorage.removeItem('kiosk_payments');
       localStorage.removeItem('kiosk_customisations_master');
-      localStorage.setItem('kiosk_p3_p4_marker_v3', 'true');
+      localStorage.setItem('kiosk_p3_p4_p5_p6_marker', 'true');
       window.location.reload();
     }
   }, []);
@@ -157,6 +161,45 @@ export const AppProvider = ({ children }) => {
     return initialOffers;
   });
 
+  const [kiosks, setKiosks] = useState(() => {
+    const cached = localStorage.getItem('kiosk_kiosks');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed.length !== initialKiosks.length) {
+        localStorage.removeItem('kiosk_kiosks');
+      } else {
+        return parsed;
+      }
+    }
+    return initialKiosks;
+  });
+
+  const [orders, setOrders] = useState(() => {
+    const cached = localStorage.getItem('kiosk_orders');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed.length !== initialOrders.length) {
+        localStorage.removeItem('kiosk_orders');
+      } else {
+        return parsed;
+      }
+    }
+    return initialOrders;
+  });
+
+  const [payments, setPayments] = useState(() => {
+    const cached = localStorage.getItem('kiosk_payments');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed.length !== initialPayments.length) {
+        localStorage.removeItem('kiosk_payments');
+      } else {
+        return parsed;
+      }
+    }
+    return initialPayments;
+  });
+
   const [toasts, setToasts] = useState([]);
 
   // Auto-sync state variables to localStorage when changed
@@ -211,6 +254,18 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('kiosk_offers', JSON.stringify(offers));
   }, [offers]);
+
+  useEffect(() => {
+    localStorage.setItem('kiosk_kiosks', JSON.stringify(kiosks));
+  }, [kiosks]);
+
+  useEffect(() => {
+    localStorage.setItem('kiosk_orders', JSON.stringify(orders));
+  }, [orders]);
+
+  useEffect(() => {
+    localStorage.setItem('kiosk_payments', JSON.stringify(payments));
+  }, [payments]);
 
   // Toast helper
   const showToast = (message, type = 'success') => {
@@ -882,6 +937,46 @@ export const AppProvider = ({ children }) => {
     showToast(`Offer ${newStatus === 'Active' ? 'activated' : 'deactivated'} successfully`, 'success');
   };
 
+  // ─── Kiosk CRUD ───────────────────────────
+  const addKiosk = (kioskData) => {
+    const newId = `kisk-${Date.now()}`;
+    const now = new Date().toISOString();
+    setKiosks(prev => [...prev, { 
+      ...kioskData, 
+      id: newId, 
+      status: 'Active', 
+      availability: 'Available',
+      connection: 'Online',
+      lastActive: now,
+      createdAt: now, 
+      updatedAt: now 
+    }]);
+    showToast('Kiosk registered successfully', 'success');
+    return true;
+  };
+
+  const editKiosk = (id, updatedFields) => {
+    setKiosks(prev => prev.map(k => k.id === id ? { ...k, ...updatedFields, updatedAt: new Date().toISOString() } : k));
+    showToast('Kiosk configuration updated successfully', 'success');
+    return true;
+  };
+
+  const deleteKiosk = (id) => {
+    setKiosks(prev => prev.filter(k => k.id !== id));
+    showToast('Kiosk deleted successfully', 'success');
+    return true;
+  };
+
+  const setKioskStatus = (id, newStatus) => {
+    setKiosks(prev => prev.map(k => k.id === id ? { ...k, status: newStatus, updatedAt: new Date().toISOString() } : k));
+    showToast(`Kiosk status marked as ${newStatus}`, 'success');
+  };
+
+  const setKioskAvailability = (id, newAvail) => {
+    setKiosks(prev => prev.map(k => k.id === id ? { ...k, availability: newAvail, updatedAt: new Date().toISOString() } : k));
+    showToast(`Kiosk marked as ${newAvail}`, 'success');
+  };
+
   return (
     <AppContext.Provider value={{
       isAuthenticated,
@@ -953,7 +1048,15 @@ export const AppProvider = ({ children }) => {
       addOffer,
       editOffer,
       deleteOffer,
-      setOfferStatus
+      setOfferStatus,
+      kiosks,
+      addKiosk,
+      editKiosk,
+      deleteKiosk,
+      setKioskStatus,
+      setKioskAvailability,
+      orders,
+      payments
     }}>
       {children}
     </AppContext.Provider>

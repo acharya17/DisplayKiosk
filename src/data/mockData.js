@@ -486,3 +486,220 @@ export const initialOffers = [
     updatedAt: "2026-08-21T12:15:00Z"
   }
 ];
+
+export const initialKiosks = [
+  {
+    id: "kisk-1",
+    kioskId: "KSK-001",
+    name: "Counter 01 - Main Entrance",
+    location: "br-3", // Spice Junction Manipal
+    categoriesAvailability: ["cat-1", "cat-2", "cat-3"], // Biryani, Beverages, Desserts
+    productsAvailability: ["prod-1", "prod-2", "prod-3", "prod-4", "prod-5"],
+    combosAvailability: ["combo-1", "combo-2", "combo-3"],
+    payments: ["UPI", "Card"],
+    status: "Active",
+    availability: "Available",
+    connection: "Online",
+    lastActive: "2026-08-21T16:50:00Z",
+    createdAt: "2026-08-20T10:00:00Z",
+    updatedAt: "2026-08-21T16:50:00Z"
+  },
+  {
+    id: "kisk-2",
+    kioskId: "KSK-002",
+    name: "Express Order Terminal",
+    location: "br-3", // Spice Junction Manipal
+    categoriesAvailability: ["cat-1", "cat-2"], // Biryani, Beverages
+    productsAvailability: ["prod-1", "prod-2", "prod-4"],
+    combosAvailability: ["combo-1"],
+    payments: ["UPI"],
+    status: "Active",
+    availability: "Available",
+    connection: "Offline",
+    lastActive: "2026-08-21T14:30:00Z",
+    createdAt: "2026-08-20T10:15:00Z",
+    updatedAt: "2026-08-21T14:30:00Z"
+  },
+  {
+    id: "kisk-3",
+    kioskId: "KSK-003",
+    name: "Table Side Tablet 03",
+    location: "br-1", // Spice Junction Udupi
+    categoriesAvailability: ["cat-1", "cat-2", "cat-3"],
+    productsAvailability: ["prod-1", "prod-2", "prod-3", "prod-4", "prod-5"],
+    combosAvailability: ["combo-1", "combo-2"],
+    payments: ["UPI", "Card"],
+    status: "Maintenance",
+    availability: "Unavailable",
+    connection: "Online",
+    lastActive: "2026-08-21T16:52:00Z",
+    createdAt: "2026-08-21T09:00:00Z",
+    updatedAt: "2026-08-21T16:52:00Z"
+  }
+];
+
+export const initialOrders = [
+  {
+    id: "ord-10025",
+    token: "125",
+    kioskId: "kisk-1", // Counter 01
+    kioskCode: "KSK-001",
+    kioskName: "Counter 01 - Main Entrance",
+    date: "2026-08-21T16:30:00Z",
+    customerName: "Aravind Kumar",
+    customerMobile: "+91 99887 76655",
+    items: [
+      {
+        type: "Product",
+        productId: "prod-1",
+        name: "Chicken Dum Biryani",
+        quantity: 2,
+        price: 220.00,
+        customisations: [
+          { name: "Extra Raita", price: 20.00 }
+        ]
+      },
+      {
+        type: "Product",
+        productId: "prod-4",
+        name: "Cold Coffee",
+        quantity: 1,
+        price: 90.00,
+        customisations: []
+      }
+    ],
+    taxAmount: 26.50,
+    discountAmount: 10.00,
+    totalAmount: 566.50,
+    paymentStatus: "Successful",
+    orderStatus: "Completed",
+    paymentMethod: "UPI",
+    transactionId: "TXN-773829103"
+  },
+  {
+    id: "ord-10026",
+    token: "126",
+    kioskId: "kisk-1",
+    kioskCode: "KSK-001",
+    kioskName: "Counter 01 - Main Entrance",
+    date: "2026-08-21T16:35:00Z",
+    customerName: "",
+    customerMobile: "",
+    items: [
+      {
+        type: "Combo",
+        comboId: "combo-1",
+        name: "Biryani Feast Combo",
+        quantity: 1,
+        price: 219.00,
+        customisations: []
+      }
+    ],
+    taxAmount: 10.95,
+    discountAmount: 0.00,
+    totalAmount: 229.95,
+    paymentStatus: "Successful",
+    orderStatus: "Completed",
+    paymentMethod: "Card",
+    transactionId: "TXN-883710294"
+  },
+  {
+    id: "ord-10027",
+    token: "127",
+    kioskId: "kisk-2", // Express Terminal
+    kioskCode: "KSK-002",
+    kioskName: "Express Order Terminal",
+    date: "2026-08-21T16:42:00Z",
+    customerName: "Sneha Rao",
+    customerMobile: "+91 99001 12233",
+    items: [
+      {
+        type: "Product",
+        productId: "prod-2",
+        name: "Mutton Biryani",
+        quantity: 1,
+        price: 280.00,
+        customisations: []
+      }
+    ],
+    taxAmount: 14.00,
+    discountAmount: 0.00,
+    totalAmount: 294.00,
+    paymentStatus: "Pending",
+    orderStatus: "Payment Pending",
+    paymentMethod: "UPI",
+    transactionId: ""
+  },
+  {
+    id: "ord-10028",
+    token: "128",
+    kioskId: "kisk-3", // Tablet 03
+    kioskCode: "KSK-003",
+    kioskName: "Table Side Tablet 03",
+    date: "2026-08-21T16:45:00Z",
+    customerName: "",
+    customerMobile: "",
+    items: [
+      {
+        type: "Product",
+        productId: "prod-5",
+        name: "Lemon Soda",
+        quantity: 3,
+        price: 45.00,
+        customisations: []
+      }
+    ],
+    taxAmount: 6.75,
+    discountAmount: 15.00,
+    totalAmount: 126.75,
+    paymentStatus: "Failed",
+    orderStatus: "Cancelled",
+    paymentMethod: "UPI",
+    transactionId: "TXN-998822771"
+  }
+];
+
+export const initialPayments = [
+  {
+    id: "pay-1",
+    transactionId: "TXN-773829103",
+    referenceId: "REF-UPI-88371",
+    orderId: "ord-10025",
+    token: "125",
+    kioskId: "kisk-1",
+    kioskCode: "KSK-001",
+    kioskName: "Counter 01 - Main Entrance",
+    amount: 566.50,
+    paymentMethod: "UPI",
+    status: "Successful",
+    timestamp: "2026-08-21T16:31:02Z"
+  },
+  {
+    id: "pay-2",
+    transactionId: "TXN-883710294",
+    referenceId: "REF-CRD-00291",
+    orderId: "ord-10026",
+    token: "126",
+    kioskId: "kisk-1",
+    kioskCode: "KSK-001",
+    kioskName: "Counter 01 - Main Entrance",
+    amount: 229.95,
+    paymentMethod: "Card",
+    status: "Successful",
+    timestamp: "2026-08-21T16:36:12Z"
+  },
+  {
+    id: "pay-3",
+    transactionId: "TXN-998822771",
+    referenceId: "REF-UPI-FAILED",
+    orderId: "ord-10028",
+    token: "128",
+    kioskId: "kisk-3",
+    kioskCode: "KSK-003",
+    kioskName: "Table Side Tablet 03",
+    amount: 126.75,
+    paymentMethod: "UPI",
+    status: "Failed",
+    timestamp: "2026-08-21T16:45:30Z"
+  }
+];

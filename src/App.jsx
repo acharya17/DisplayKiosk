@@ -15,6 +15,8 @@ import KioskProducts from './pages/KioskProducts';
 import KioskCustomisations from './pages/KioskCustomisations';
 import KioskCombos from './pages/KioskCombos';
 import KioskTaxOffers from './pages/KioskTaxOffers';
+import Kiosks from './pages/Kiosks';
+import KioskOrders from './pages/KioskOrders';
 import PlaceholderPage from './pages/PlaceholderPage';
 
 // Import CSS Styles
@@ -48,8 +50,8 @@ function App() {
             <Route path="kiosk-customisations" element={<KioskCustomisations />} />
             <Route path="kiosk-combos" element={<KioskCombos />} />
             <Route path="kiosk-discounts" element={<KioskTaxOffers />} />
-            <Route path="kiosks" element={<PlaceholderPage />} />
-            <Route path="kiosk-orders" element={<PlaceholderPage />} />
+            <Route path="kiosks" element={<Kiosks />} />
+            <Route path="kiosk-orders" element={<KioskOrders />} />
             <Route path="kiosk-settings" element={<PlaceholderPage />} />
             
             {/* Fallback inside portal */}

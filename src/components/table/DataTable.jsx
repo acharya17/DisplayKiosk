@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   ChevronLeft, ChevronRight, Edit2, Trash2, ShieldAlert, CheckSquare, Square, 
-  ArrowUpDown, ArrowUp, ArrowDown 
+  ArrowUpDown, ArrowUp, ArrowDown, Eye
 } from 'lucide-react';
 
 const DataTable = ({ 
@@ -9,6 +9,7 @@ const DataTable = ({
   data, 
   onEdit, 
   onDelete, 
+  onView,
   onToggleStatus, 
   keyField = 'id',
   searchQuery = '',
@@ -135,13 +136,13 @@ const DataTable = ({
                   </div>
                 </th>
               ))}
-              <th className="col-actions">Actions</th>
+              {(onEdit || onDelete || onView) && <th className="col-actions">Actions</th>}
             </tr>
           </thead>
           <tbody>
             {paginatedData.length === 0 ? (
               <tr>
-                <td colSpan={columns.length + 2} style={{ height: '140px', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+                <td colSpan={columns.length + (onEdit || onDelete || onView ? 2 : 1)} style={{ height: '140px', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                     <ShieldAlert size={32} style={{ color: 'var(--color-text-muted)' }} />
                     <span style={{ fontWeight: 500 }}>No branches found</span>
@@ -182,30 +183,48 @@ const DataTable = ({
                         {col.render ? col.render(row[col.field], row) : row[col.field]}
                       </td>
                     ))}
-                    <td className="col-actions">
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                        <button 
-                          className="tooltip-container"
-                          onClick={() => onEdit(row)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: '4px' }}
-                          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
-                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                          <Edit2 size={15} className="text-secondary" />
-                          <span className="tooltip-text">Edit</span>
-                        </button>
-                        <button 
-                          className="tooltip-container"
-                          onClick={() => onDelete(row)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: '4px' }}
-                          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fee2e2'}
-                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                          <Trash2 size={15} style={{ color: 'var(--color-error)' }} />
-                          <span className="tooltip-text">Deactivate</span>
-                        </button>
-                      </div>
-                    </td>
+                    {(onEdit || onDelete || onView) && (
+                      <td className="col-actions">
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                          {onView && (
+                            <button 
+                              className="tooltip-container"
+                              onClick={(e) => { e.stopPropagation(); onView(row); }}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: '4px' }}
+                              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                              <Eye size={15} style={{ color: 'var(--color-text-secondary)' }} />
+                              <span className="tooltip-text">View Details</span>
+                            </button>
+                          )}
+                          {onEdit && (
+                            <button 
+                              className="tooltip-container"
+                              onClick={(e) => { e.stopPropagation(); onEdit(row); }}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: '4px' }}
+                              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                              <Edit2 size={15} className="text-secondary" />
+                              <span className="tooltip-text">Edit</span>
+                            </button>
+                          )}
+                          {onDelete && (
+                            <button 
+                              className="tooltip-container"
+                              onClick={(e) => { e.stopPropagation(); onDelete(row); }}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: '4px' }}
+                              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fee2e2'}
+                              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                              <Trash2 size={15} style={{ color: 'var(--color-error)' }} />
+                              <span className="tooltip-text">Deactivate</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 );
               })

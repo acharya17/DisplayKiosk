@@ -264,9 +264,9 @@ const KioskTaxOffers = () => {
   const renderApplicabilitySelector = (form, setForm, isOffer = false) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <div className="form-group" style={{ marginBottom: 0 }}>
-        <label className="form-label">Applicability <span className="required">*</span></label>
-        <select value={form.applicability} onChange={(e) => setForm(prev => ({ ...prev, applicability: e.target.value, selectedCategories: [], selectedProducts: [], selectedCombos: [] }))} className="form-control" style={{ height: '34px' }}>
-          <option value="All Products">All Products</option>
+        <label className="form-label" style={{ fontSize: '11px' }}>Scope/Applicability <span className="required">*</span></label>
+        <select value={form.applicability} onChange={(e) => setForm(prev => ({ ...prev, applicability: e.target.value, selectedCategories: [], selectedProducts: [], selectedCombos: [] }))} className="form-control" style={{ height: '32px', fontSize: '12px' }}>
+          <option value="All Products">All Products (Entire Menu)</option>
           <option value="Selected Categories">Selected Categories</option>
           <option value="Selected Products">Selected Products</option>
           <option value="Selected Combos">Selected Combos</option>
@@ -276,7 +276,7 @@ const KioskTaxOffers = () => {
 
       {form.applicability === 'Selected Categories' && (
         <div className="form-group" style={{ marginBottom: 0 }}>
-          <label className="form-label">Select Categories</label>
+          <label className="form-label" style={{ fontSize: '11px' }}>Select Categories</label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '8px', border: '1px solid var(--color-border)', borderRadius: '4px', minHeight: '36px', backgroundColor: '#f8fafc' }}>
             {categories.filter(c => c.status === 'Active').map(cat => (
               <label key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', backgroundColor: form.selectedCategories.includes(cat.id) ? '#ea580c' : '#e2e8f0', color: form.selectedCategories.includes(cat.id) ? '#fff' : '#334155', fontWeight: 500, transition: 'all 0.15s' }}>
@@ -290,28 +290,50 @@ const KioskTaxOffers = () => {
 
       {form.applicability === 'Selected Products' && (
         <div className="form-group" style={{ marginBottom: 0 }}>
-          <label className="form-label">Select Products</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '8px', border: '1px solid var(--color-border)', borderRadius: '4px', minHeight: '36px', backgroundColor: '#f8fafc' }}>
-            {products.filter(p => p.status === 'Active').map(prod => (
-              <label key={prod.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', backgroundColor: form.selectedProducts.includes(prod.id) ? '#ea580c' : '#e2e8f0', color: form.selectedProducts.includes(prod.id) ? '#fff' : '#334155', fontWeight: 500, transition: 'all 0.15s' }}>
-                <input type="checkbox" checked={form.selectedProducts.includes(prod.id)} onChange={() => toggleMultiSelect(setForm, 'selectedProducts', prod.id)} style={{ display: 'none' }} />
-                {prod.name}
-              </label>
-            ))}
+          <label className="form-label" style={{ fontSize: '11px' }}>Select Products</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', border: '1px solid var(--color-border)', borderRadius: '4px', maxHeight: '200px', overflowY: 'auto', padding: '4px', backgroundColor: '#f8fafc' }}>
+            {products.filter(p => p.status === 'Active').map(prod => {
+              const isSelected = form.selectedProducts.includes(prod.id);
+              return (
+                <label key={prod.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', borderRadius: '4px', cursor: 'pointer', backgroundColor: isSelected ? 'var(--color-primary-light)' : '#fff', border: isSelected ? '1px solid var(--color-primary)' : '1px solid #f1f5f9', transition: 'all 0.15s', marginBottom: '2px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '3px', overflow: 'hidden', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {prod.image ? <img src={prod.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Package size={12} style={{ color: 'var(--color-text-muted)' }} />}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: isSelected ? 'var(--color-primary)' : 'var(--color-text-main)' }}>{prod.name}</div>
+                      <div style={{ fontSize: '10px', color: 'var(--color-text-secondary)' }}>₹{Number(prod.displayPrice || prod.price || 0).toFixed(2)}</div>
+                    </div>
+                  </div>
+                  <input type="checkbox" checked={isSelected} onChange={() => toggleMultiSelect(setForm, 'selectedProducts', prod.id)} style={{ accentColor: 'var(--color-primary)', cursor: 'pointer' }} />
+                </label>
+              );
+            })}
           </div>
         </div>
       )}
 
       {form.applicability === 'Selected Combos' && (
         <div className="form-group" style={{ marginBottom: 0 }}>
-          <label className="form-label">Select Combos</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '8px', border: '1px solid var(--color-border)', borderRadius: '4px', minHeight: '36px', backgroundColor: '#f8fafc' }}>
-            {combos.filter(c => c.status === 'Active').map(combo => (
-              <label key={combo.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer', backgroundColor: form.selectedCombos.includes(combo.id) ? '#ea580c' : '#e2e8f0', color: form.selectedCombos.includes(combo.id) ? '#fff' : '#334155', fontWeight: 500, transition: 'all 0.15s' }}>
-                <input type="checkbox" checked={form.selectedCombos.includes(combo.id)} onChange={() => toggleMultiSelect(setForm, 'selectedCombos', combo.id)} style={{ display: 'none' }} />
-                {combo.name}
-              </label>
-            ))}
+          <label className="form-label" style={{ fontSize: '11px' }}>Select Combos</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', border: '1px solid var(--color-border)', borderRadius: '4px', maxHeight: '200px', overflowY: 'auto', padding: '4px', backgroundColor: '#f8fafc' }}>
+            {combos.filter(c => c.status === 'Active').map(combo => {
+              const isSelected = form.selectedCombos.includes(combo.id);
+              return (
+                <label key={combo.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', borderRadius: '4px', cursor: 'pointer', backgroundColor: isSelected ? 'var(--color-primary-light)' : '#fff', border: isSelected ? '1px solid var(--color-primary)' : '1px solid #f1f5f9', transition: 'all 0.15s', marginBottom: '2px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '3px', overflow: 'hidden', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {combo.image ? <img src={combo.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Package size={12} style={{ color: 'var(--color-text-muted)' }} />}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: isSelected ? 'var(--color-primary)' : 'var(--color-text-main)' }}>{combo.name}</div>
+                      <div style={{ fontSize: '10px', color: 'var(--color-text-secondary)' }}>₹{Number(combo.comboPrice || 0).toFixed(2)}</div>
+                    </div>
+                  </div>
+                  <input type="checkbox" checked={isSelected} onChange={() => toggleMultiSelect(setForm, 'selectedCombos', combo.id)} style={{ accentColor: 'var(--color-primary)', cursor: 'pointer' }} />
+                </label>
+              );
+            })}
           </div>
         </div>
       )}
@@ -415,68 +437,77 @@ const KioskTaxOffers = () => {
 
       /* ═══ ADD / EDIT TAX ═══ */
       ) : (viewState === 'add' || viewState === 'edit') && isTax ? (
-        <div>
-          <div className="card" style={{ padding: '24px' }}>
-            <h3 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '16px', borderBottom: '1px solid var(--color-border)', paddingBottom: '6px' }}>Tax Information</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Tax Name <span className="required">*</span></label>
-                  <input type="text" value={taxForm.name} onChange={(e) => setTaxForm(prev => ({ ...prev, name: e.target.value }))} placeholder="e.g. GST, Service Tax" className={`form-control ${errors.name ? 'error' : ''}`} style={{ height: '34px' }} />
-                  {errors.name && <span className="form-error">{errors.name}</span>}
-                </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Tax Rate (%) <span className="required">*</span></label>
-                  <input type="number" value={taxForm.rate} onChange={(e) => setTaxForm(prev => ({ ...prev, rate: e.target.value }))} placeholder="e.g. 5" className={`form-control ${errors.rate ? 'error' : ''}`} style={{ height: '34px' }} min="0" step="0.1" />
-                  {errors.rate && <span className="form-error">{errors.rate}</span>}
-                </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '16px', alignItems: 'start' }}>
+          {/* Left Column: Basic Info */}
+          <div className="card" style={{ padding: '16px' }}>
+            <h3 style={{ fontSize: '12px', fontWeight: 600, marginBottom: '12px', borderBottom: '1px solid var(--color-border)', paddingBottom: '6px' }}>Tax Information</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '11px' }}>Tax Name <span className="required">*</span></label>
+                <input type="text" value={taxForm.name} onChange={(e) => setTaxForm(prev => ({ ...prev, name: e.target.value }))} placeholder="e.g. GST, Service Tax" className={`form-control ${errors.name ? 'error' : ''}`} style={{ height: '32px', fontSize: '12px' }} />
+                {errors.name && <span className="form-error">{errors.name}</span>}
               </div>
-              {renderApplicabilitySelector(taxForm, setTaxForm)}
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '11px' }}>Tax Rate (%) <span className="required">*</span></label>
+                <input type="number" value={taxForm.rate} onChange={(e) => setTaxForm(prev => ({ ...prev, rate: e.target.value }))} placeholder="e.g. 5" className={`form-control ${errors.rate ? 'error' : ''}`} style={{ height: '32px', fontSize: '12px' }} min="0" step="0.1" />
+                {errors.rate && <span className="form-error">{errors.rate}</span>}
+              </div>
             </div>
+          </div>
+
+          {/* Right Column: Applicability */}
+          <div className="card" style={{ padding: '16px' }}>
+            <h3 style={{ fontSize: '12px', fontWeight: 600, marginBottom: '12px', borderBottom: '1px solid var(--color-border)', paddingBottom: '6px' }}>Scope & Applicability</h3>
+            {renderApplicabilitySelector(taxForm, setTaxForm)}
           </div>
         </div>
 
       /* ═══ ADD / EDIT OFFER ═══ */
       ) : (viewState === 'add' || viewState === 'edit') && !isTax ? (
-        <div>
-          <div className="card" style={{ padding: '24px' }}>
-            <h3 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '16px', borderBottom: '1px solid var(--color-border)', paddingBottom: '6px' }}>Offer Information</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '16px', alignItems: 'start' }}>
+          {/* Left Column: Basic Info */}
+          <div className="card" style={{ padding: '16px' }}>
+            <h3 style={{ fontSize: '12px', fontWeight: 600, marginBottom: '12px', borderBottom: '1px solid var(--color-border)', paddingBottom: '6px' }}>Offer Information</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Offer Name <span className="required">*</span></label>
-                <input type="text" value={offerForm.name} onChange={(e) => setOfferForm(prev => ({ ...prev, name: e.target.value }))} placeholder="e.g. Lunch Special, Weekend Combo Deal" className={`form-control ${errors.name ? 'error' : ''}`} style={{ height: '34px' }} />
+                <label className="form-label" style={{ fontSize: '11px' }}>Offer Name <span className="required">*</span></label>
+                <input type="text" value={offerForm.name} onChange={(e) => setOfferForm(prev => ({ ...prev, name: e.target.value }))} placeholder="e.g. Lunch Special" className={`form-control ${errors.name ? 'error' : ''}`} style={{ height: '32px', fontSize: '12px' }} />
                 {errors.name && <span className="form-error">{errors.name}</span>}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Discount Type <span className="required">*</span></label>
-                  <select value={offerForm.discountType} onChange={(e) => setOfferForm(prev => ({ ...prev, discountType: e.target.value }))} className="form-control" style={{ height: '34px' }}>
+                  <label className="form-label" style={{ fontSize: '11px' }}>Discount Type <span className="required">*</span></label>
+                  <select value={offerForm.discountType} onChange={(e) => setOfferForm(prev => ({ ...prev, discountType: e.target.value }))} className="form-control" style={{ height: '32px', fontSize: '12px' }}>
                     <option value="Percentage">Percentage (%)</option>
                     <option value="Fixed Amount">Fixed Amount (₹)</option>
                   </select>
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Discount Value <span className="required">*</span></label>
-                  <input type="number" value={offerForm.discountValue} onChange={(e) => setOfferForm(prev => ({ ...prev, discountValue: e.target.value }))} placeholder={offerForm.discountType === 'Percentage' ? 'e.g. 10' : 'e.g. 50'} className={`form-control ${errors.discountValue ? 'error' : ''}`} style={{ height: '34px' }} min="0" />
+                  <label className="form-label" style={{ fontSize: '11px' }}>Discount Value <span className="required">*</span></label>
+                  <input type="number" value={offerForm.discountValue} onChange={(e) => setOfferForm(prev => ({ ...prev, discountValue: e.target.value }))} placeholder={offerForm.discountType === 'Percentage' ? 'e.g. 10' : 'e.g. 50'} className={`form-control ${errors.discountValue ? 'error' : ''}`} style={{ height: '32px', fontSize: '12px' }} min="0" />
                   {errors.discountValue && <span className="form-error">{errors.discountValue}</span>}
                 </div>
               </div>
 
-              {renderApplicabilitySelector(offerForm, setOfferForm, true)}
-
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Start Date</label>
-                  <input type="date" value={offerForm.startDate} onChange={(e) => setOfferForm(prev => ({ ...prev, startDate: e.target.value }))} className="form-control" style={{ height: '34px' }} />
+                  <label className="form-label" style={{ fontSize: '11px' }}>Start Date</label>
+                  <input type="date" value={offerForm.startDate} onChange={(e) => setOfferForm(prev => ({ ...prev, startDate: e.target.value }))} className="form-control" style={{ height: '32px', fontSize: '12px' }} />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">End Date</label>
-                  <input type="date" value={offerForm.endDate} onChange={(e) => setOfferForm(prev => ({ ...prev, endDate: e.target.value }))} className={`form-control ${errors.endDate ? 'error' : ''}`} style={{ height: '34px' }} />
+                  <label className="form-label" style={{ fontSize: '11px' }}>End Date</label>
+                  <input type="date" value={offerForm.endDate} onChange={(e) => setOfferForm(prev => ({ ...prev, endDate: e.target.value }))} className={`form-control ${errors.endDate ? 'error' : ''}`} style={{ height: '32px', fontSize: '12px' }} />
                   {errors.endDate && <span className="form-error">{errors.endDate}</span>}
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Right Column: Applicability */}
+          <div className="card" style={{ padding: '16px' }}>
+            <h3 style={{ fontSize: '12px', fontWeight: 600, marginBottom: '12px', borderBottom: '1px solid var(--color-border)', paddingBottom: '6px' }}>Scope & Applicability</h3>
+            {renderApplicabilitySelector(offerForm, setOfferForm, true)}
           </div>
         </div>
 
