@@ -48,6 +48,7 @@ const Playlists = () => {
   };
   const [formData, setFormData] = useState(initialPlaylistForm);
   const [errors, setErrors] = useState({});
+  const [unsavedModalOpen, setUnsavedModalOpen] = useState(false);
 
   // Banner Selection Dialog Checklist State
   const [bannerSearchQuery, setBannerSearchQuery] = useState('');
@@ -132,16 +133,52 @@ const Playlists = () => {
     return Object.keys(tempErrors).length === 0;
   };
 
+  const hasUnsavedChanges = () => {
+    if (viewState === 'add') {
+      return (
+        formData.name !== '' ||
+        formData.description !== '' ||
+        formData.banners.length > 0
+      );
+    }
+    if (viewState === 'edit') {
+      const original = playlists.find(p => p.id === formData.id);
+      if (!original) return false;
+      return (
+        formData.name !== original.name ||
+        formData.description !== original.description ||
+        formData.status !== original.status ||
+        JSON.stringify(formData.banners) !== JSON.stringify(original.banners)
+      );
+    }
+    return false;
+  };
+
+  const handleBack = () => {
+    if ((viewState === 'add' || viewState === 'edit') && hasUnsavedChanges()) {
+      setUnsavedModalOpen(true);
+    } else {
+      setViewState('list');
+    }
+  };
+
   const handleSavePlaylist = () => {
-    if (!validatePlaylist()) return;
+    if (!validatePlaylist()) return false;
 
     if (viewState === 'edit') {
       const success = editPlaylist(formData.id, formData);
-      if (success) setViewState('list');
+      if (success) {
+        setViewState('list');
+        return true;
+      }
     } else {
       const success = addPlaylist(formData);
-      if (success) setViewState('list');
+      if (success) {
+        setViewState('list');
+        return true;
+      }
     }
+    return false;
   };
 
   const handleDeleteConfirm = () => {
@@ -284,8 +321,47 @@ const Playlists = () => {
     { field: 'description', header: 'Description' },
     { 
       field: 'banners', 
-      header: 'Banners Size', 
-      render: (val) => `${val ? val.length : 0} items` 
+      header: 'Loop Contents', 
+      render: (val) => {
+        if (!val || val.length === 0) return <span style={{ color: 'var(--color-text-muted)', fontSize: '12px' }}>Empty Playlist</span>;
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {val.slice(0, 4).map((item, idx) => {
+                const b = banners.find(banner => banner.id === item.bannerId);
+                if (!b) return null;
+                return (
+                  <div 
+                    key={idx} 
+                    title={b.name}
+                    style={{ 
+                      width: '28px', 
+                      height: '20px', 
+                      borderRadius: '3px', 
+                      overflow: 'hidden', 
+                      border: '1px solid var(--color-border)', 
+                      backgroundColor: '#f1f5f9' 
+                    }}
+                  >
+                    {b.mediaType === 'Video' ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--color-primary)' }}>
+                        <Film size={10} />
+                      </div>
+                    ) : (
+                      <img src={b.mediaUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {val.length > 4 && (
+              <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--color-text-secondary)', backgroundColor: '#e2e8f0', padding: '2px 5px', borderRadius: '4px' }}>
+                +{val.length - 4}
+              </span>
+            )}
+          </div>
+        );
+      }
     },
     { 
       field: 'status', 
@@ -321,7 +397,7 @@ const Playlists = () => {
       <div className="breadcrumb">
         <span>TV Display</span>
         <ChevronRight size={12} className="breadcrumb-separator" />
-        <span className="breadcrumb-item active" style={{ cursor: viewState !== 'list' ? 'pointer' : 'default' }} onClick={() => setViewState('list')}>
+        <span className="breadcrumb-item active" style={{ cursor: viewState !== 'list' ? 'pointer' : 'default' }} onClick={handleBack}>
           Playlists
         </span>
         {viewState === 'add' && (
@@ -349,7 +425,7 @@ const Playlists = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {viewState !== 'list' && (
             <button 
-              onClick={() => setViewState('list')} 
+              onClick={handleBack} 
               className="btn btn-outline" 
               style={{ height: '36px', width: '36px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}
               title="Back"
@@ -406,7 +482,6 @@ const Playlists = () => {
               </div>
             ) : (
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button className="btn btn-secondary" onClick={() => setViewState('list')}>Cancel</button>
                 <button className="btn btn-primary" onClick={handleSavePlaylist}>Save Playlist</button>
               </div>
             )
@@ -772,47 +847,60 @@ const Playlists = () => {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {banners
-                  .filter(b => b.name.toLowerCase().includes(bannerSearchQuery.toLowerCase()))
-                  .map(b => {
-                    const isChecked = selectedBannerIds.has(b.id);
-                    return (
-                      <div 
-                        key={b.id}
-                        onClick={() => handleTogglePickerSelection(b.id)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          padding: '10px',
-                          border: '1px solid var(--color-border)',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          backgroundColor: isChecked ? '#f8fafc' : '#ffffff'
-                        }}
-                      >
-                        <input 
-                          type="checkbox" 
-                          checked={isChecked}
-                          onChange={() => {}} // handled by parent wrapper onClick
-                          style={{ marginRight: '12px', cursor: 'pointer' }}
-                        />
-                        <div style={{ width: '48px', height: '28px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--color-border)', marginRight: '12px', backgroundColor: '#f1f5f9' }}>
-                          {b.mediaType === 'Video' ? (
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--color-primary)' }}>
-                              <Film size={12} />
-                            </div>
-                          ) : (
-                            <img src={b.mediaUrl} alt="prev" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          )}
+                {banners.filter(b => b.status === 'Active').length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--color-text-secondary)' }}>
+                    <ImageIcon size={32} style={{ color: 'var(--color-text-muted)', marginBottom: '8px' }} />
+                    <div style={{ fontWeight: 600, fontSize: '13px' }}>No active banners available</div>
+                    <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: '4px' }}>Please activate or upload banners in the Banner Library first.</div>
+                  </div>
+                ) : banners.filter(b => b.status === 'Active' && b.name.toLowerCase().includes(bannerSearchQuery.toLowerCase())).length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--color-text-secondary)' }}>
+                    <Search size={32} style={{ color: 'var(--color-text-muted)', marginBottom: '8px' }} />
+                    <div style={{ fontWeight: 600, fontSize: '13px' }}>No matching active banners found</div>
+                  </div>
+                ) : (
+                  banners
+                    .filter(b => b.status === 'Active' && b.name.toLowerCase().includes(bannerSearchQuery.toLowerCase()))
+                    .map(b => {
+                      const isChecked = selectedBannerIds.has(b.id);
+                      return (
+                        <div 
+                          key={b.id}
+                          onClick={() => handleTogglePickerSelection(b.id)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '10px',
+                            border: '1px solid var(--color-border)',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            backgroundColor: isChecked ? '#f8fafc' : '#ffffff'
+                          }}
+                        >
+                          <input 
+                            type="checkbox" 
+                            checked={isChecked}
+                            onChange={() => {}} // handled by parent wrapper onClick
+                            style={{ marginRight: '12px', cursor: 'pointer' }}
+                          />
+                          <div style={{ width: '48px', height: '28px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--color-border)', marginRight: '12px', backgroundColor: '#f1f5f9' }}>
+                            {b.mediaType === 'Video' ? (
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--color-primary)' }}>
+                                <Film size={12} />
+                              </div>
+                            ) : (
+                              <img src={b.mediaUrl} alt="prev" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            )}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 500, fontSize: '13px' }}>{b.name}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Format: {b.mediaType}</div>
+                          </div>
+                          <span className="badge badge-active">Active</span>
                         </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 500, fontSize: '13px' }}>{b.name}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Format: {b.mediaType}</div>
-                        </div>
-                        <span className={`badge badge-${b.status.toLowerCase()}`}>{b.status}</span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                )}
               </div>
             </div>
             <div className="modal-footer" style={{ borderTop: '1px solid var(--color-border)' }}>
@@ -929,6 +1017,58 @@ const Playlists = () => {
                 <button onClick={() => setFilterOpen(false)} className="btn btn-outline">Cancel</button>
                 <button onClick={() => setFilterOpen(false)} className="btn btn-primary">Apply</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Unsaved changes warning modal */}
+      {unsavedModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-container size-sm" style={{ padding: '4px' }}>
+            <div className="modal-header" style={{ borderBottom: 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-warning)' }}>
+                <AlertTriangle size={20} />
+                <h3 style={{ fontSize: '15px', fontWeight: 600 }}>Unsaved Changes</h3>
+              </div>
+              <button onClick={() => setUnsavedModalOpen(false)} className="modal-close-btn">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="modal-body" style={{ padding: '0 24px 16px 24px' }}>
+              <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+                You have unsaved changes. What would you like to do?
+              </p>
+            </div>
+            <div className="modal-footer" style={{ borderTop: 'none', padding: '16px 24px', flexDirection: 'column', gap: '8px', alignItems: 'stretch' }}>
+              <button 
+                onClick={() => {
+                  const success = handleSavePlaylist();
+                  if (success) {
+                    setUnsavedModalOpen(false);
+                  }
+                }} 
+                className="btn btn-primary"
+                style={{ width: '100%' }}
+              >
+                Save & Go Back
+              </button>
+              <button 
+                onClick={() => {
+                  setUnsavedModalOpen(false);
+                  setViewState('list');
+                }} 
+                className="btn btn-secondary"
+                style={{ width: '100%' }}
+              >
+                Go Back Without Saving
+              </button>
+              <button 
+                onClick={() => setUnsavedModalOpen(false)} 
+                className="btn btn-outline"
+                style={{ width: '100%', borderColor: 'transparent' }}
+              >
+                Continue Editing
+              </button>
             </div>
           </div>
         </div>
