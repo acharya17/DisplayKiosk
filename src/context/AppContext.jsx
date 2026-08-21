@@ -91,6 +91,19 @@ export const AppProvider = ({ children }) => {
     }));
   });
 
+  // Force cache flush for Phase 3 & 4 data schemas
+  useEffect(() => {
+    const marker = localStorage.getItem('kiosk_p3_p4_marker_v3');
+    if (!marker) {
+      localStorage.removeItem('kiosk_combos');
+      localStorage.removeItem('kiosk_taxes');
+      localStorage.removeItem('kiosk_offers');
+      localStorage.removeItem('kiosk_customisations_master');
+      localStorage.setItem('kiosk_p3_p4_marker_v3', 'true');
+      window.location.reload();
+    }
+  }, []);
+
   const [customisations, setCustomisations] = useState(() => {
     const cached = localStorage.getItem('kiosk_customisations_master');
     if (cached) {
@@ -109,20 +122,38 @@ export const AppProvider = ({ children }) => {
     const cached = localStorage.getItem('kiosk_combos');
     if (cached) {
       const parsed = JSON.parse(cached);
-      return parsed;
+      if (parsed.length !== initialCombos.length) {
+        localStorage.removeItem('kiosk_combos');
+      } else {
+        return parsed;
+      }
     }
     return initialCombos;
   });
 
   const [taxes, setTaxes] = useState(() => {
     const cached = localStorage.getItem('kiosk_taxes');
-    if (cached) return JSON.parse(cached);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed.length !== initialTaxes.length) {
+        localStorage.removeItem('kiosk_taxes');
+      } else {
+        return parsed;
+      }
+    }
     return initialTaxes;
   });
 
   const [offers, setOffers] = useState(() => {
     const cached = localStorage.getItem('kiosk_offers');
-    if (cached) return JSON.parse(cached);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed.length !== initialOffers.length) {
+        localStorage.removeItem('kiosk_offers');
+      } else {
+        return parsed;
+      }
+    }
     return initialOffers;
   });
 
