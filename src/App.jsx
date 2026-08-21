@@ -11,6 +11,7 @@ import Playlists from './pages/Playlists';
 import Devices from './pages/Devices';
 import Groups from './pages/Groups';
 import TvPlayer from './pages/TvPlayer';
+import KioskProducts from './pages/KioskProducts';
 import PlaceholderPage from './pages/PlaceholderPage';
 
 // Import CSS Styles
@@ -38,6 +39,15 @@ function App() {
             <Route path="devices" element={<Devices />} />
             <Route path="groups" element={<Groups />} />
             <Route path="display-settings" element={<PlaceholderPage />} />
+            
+            {/* Module 2 Placeholders */}
+            <Route path="kiosk-products" element={<KioskProducts />} />
+            <Route path="kiosk-customisations" element={<PlaceholderPage />} />
+            <Route path="kiosk-combos" element={<PlaceholderPage />} />
+            <Route path="kiosk-discounts" element={<PlaceholderPage />} />
+            <Route path="kiosks" element={<PlaceholderPage />} />
+            <Route path="kiosk-orders" element={<PlaceholderPage />} />
+            <Route path="kiosk-settings" element={<PlaceholderPage />} />
             
             {/* Fallback inside portal */}
             <Route path="*" element={<Navigate to="/overview" replace />} />

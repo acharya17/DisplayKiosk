@@ -205,5 +205,84 @@ export const initialGroups = [
   }
 ];
 
+export const initialCategories = [
+  { id: "cat-1", categoryId: "CAT-BIRYANI", name: "Biryani", description: "Aromatic spiced basmati rice delicacies.", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&q=80&w=120", status: "Active" },
+  { id: "cat-2", categoryId: "CAT-BEVERAGES", name: "Beverages", description: "Chilled mocktails, sodas, and brewed coffees.", image: "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&q=80&w=120", status: "Active" },
+  { id: "cat-3", categoryId: "CAT-DESSERTS", name: "Desserts", description: "Delicious hot and cold sweet treats.", image: "https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&q=80&w=120", status: "Active" }
+];
+
+export const initialProducts = [
+  {
+    id: "prod-1",
+    productId: "PROD-CHICKEN-BIRYANI",
+    categoryId: "cat-1",
+    name: "Chicken Dum Biryani",
+    image: "https://images.unsplash.com/photo-1633945274405-b6c8069047b0?auto=format&fit=crop&q=80&w=300",
+    description: "Fragrant long grain basmati rice cooked with succulent chicken in traditional spices.",
+    price: 220,
+    displayPrice: 199,
+    availability: "In Stock",
+    status: "Active",
+    createdAt: "2026-08-20T10:00:00Z",
+    updatedAt: "2026-08-20T10:00:00Z"
+  },
+  {
+    id: "prod-2",
+    productId: "PROD-MUTTON-BIRYANI",
+    categoryId: "cat-1",
+    name: "Mutton Biryani",
+    image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&q=80&w=300",
+    description: "Premium mutton pieces cooked slow with basmati rice.",
+    price: 280,
+    displayPrice: 249,
+    availability: "In Stock",
+    status: "Active",
+    createdAt: "2026-08-20T10:05:00Z",
+    updatedAt: "2026-08-20T10:05:00Z"
+  },
+  {
+    id: "prod-3",
+    productId: "PROD-VEG-BIRYANI",
+    categoryId: "cat-1",
+    name: "Veg Biryani",
+    image: "https://images.unsplash.com/photo-1563379971899-660589a01cf3?auto=format&fit=crop&q=80&w=300",
+    description: "Fresh seasonal vegetables cooked with aromatic spices.",
+    price: 180,
+    displayPrice: 159,
+    availability: "In Stock",
+    status: "Active",
+    createdAt: "2026-08-20T10:10:00Z",
+    updatedAt: "2026-08-20T10:10:00Z"
+  },
+  {
+    id: "prod-4",
+    productId: "PROD-COLD-COFFEE",
+    categoryId: "cat-2",
+    name: "Cold Coffee",
+    image: "https://images.unsplash.com/photo-1517701604599-bb29b565090c?auto=format&fit=crop&q=80&w=300",
+    description: "Rich brewed espresso blended with chilled milk and vanilla ice cream.",
+    price: 90,
+    displayPrice: 90,
+    availability: "In Stock",
+    status: "Active",
+    createdAt: "2026-08-20T10:15:00Z",
+    updatedAt: "2026-08-20T10:15:00Z"
+  },
+  {
+    id: "prod-5",
+    productId: "PROD-LEMON-SODA",
+    categoryId: "cat-2",
+    name: "Lemon Soda",
+    image: "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&q=80&w=300",
+    description: "Sparkling soda with freshly squeezed lime juice.",
+    price: 50,
+    displayPrice: 45,
+    availability: "Out of Stock",
+    status: "Active",
+    createdAt: "2026-08-20T10:20:00Z",
+    updatedAt: "2026-08-20T10:20:00Z"
+  }
+];
+
 
 

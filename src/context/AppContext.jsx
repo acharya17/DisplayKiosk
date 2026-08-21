@@ -1,5 +1,8 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { initialBusiness, initialBranches, initialBanners, initialDefaultContent, initialPlaylists, initialTVs, initialGroups } from '../data/mockData';
+import { 
+  initialBusiness, initialBranches, initialBanners, initialDefaultContent, 
+  initialPlaylists, initialTVs, initialGroups, initialCategories, initialProducts 
+} from '../data/mockData';
 
 const AppContext = createContext();
 
@@ -36,6 +39,51 @@ export const AppProvider = ({ children }) => {
     const cached = localStorage.getItem('kiosk_groups');
     return cached ? JSON.parse(cached) : initialGroups;
   });
+  const [categories, setCategories] = useState(() => {
+    const cached = localStorage.getItem('kiosk_categories');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      return parsed.map((c, idx) => {
+        if (!c.categoryId) {
+          const fallback = c.id ? c.id.toUpperCase() : `CAT-${idx + 1}`;
+          return { ...c, categoryId: fallback };
+        }
+        return c;
+      });
+    }
+    return initialCategories;
+  });
+  const [products, setProducts] = useState(() => {
+    const cached = localStorage.getItem('kiosk_products');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      return parsed.map((p, idx) => {
+        let updated = { ...p };
+        if (!p.productId) {
+          const fallback = p.id ? p.id.toUpperCase() : `PROD-${idx + 1}`;
+          updated.productId = fallback;
+        }
+        if (p.availability === 'Available') {
+          updated.availability = 'In Stock';
+        } else if (p.availability === 'Unavailable') {
+          updated.availability = 'Out of Stock';
+        }
+        if (updated.availability === 'In Stock' && (updated.stockQty === undefined || updated.stockQty === null)) {
+          updated.stockQty = 15; // default initial stock
+        }
+        if (updated.displayPrice === undefined || updated.displayPrice === null) {
+          updated.displayPrice = updated.price;
+        }
+        return updated;
+      });
+    }
+    // inject default stock values to initial mock data if missing
+    return initialProducts.map(p => ({
+      ...p,
+      displayPrice: p.displayPrice !== undefined ? p.displayPrice : p.price,
+      stockQty: p.availability === 'In Stock' ? (p.stockQty !== undefined ? p.stockQty : 15) : 0
+    }));
+  });
   const [toasts, setToasts] = useState([]);
 
   // Auto-sync state variables to localStorage when changed
@@ -66,6 +114,14 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('kiosk_groups', JSON.stringify(groups));
   }, [groups]);
+
+  useEffect(() => {
+    localStorage.setItem('kiosk_categories', JSON.stringify(categories));
+  }, [categories]);
+
+  useEffect(() => {
+    localStorage.setItem('kiosk_products', JSON.stringify(products));
+  }, [products]);
 
   // Toast helper
   const showToast = (message, type = 'success') => {
@@ -511,6 +567,90 @@ export const AppProvider = ({ children }) => {
     return true;
   };
 
+  const addCategory = (categoryData) => {
+    const newId = `cat-${Date.now()}`;
+    const generatedCode = `CAT-${categoryData.name.toUpperCase().replace(/[^A-Z0-9]/g, '-')}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+    const newCategory = {
+      description: '',
+      ...categoryData,
+      id: newId,
+      categoryId: generatedCode,
+      status: 'Active'
+    };
+    setCategories(prev => [...prev, newCategory]);
+    showToast('Category created successfully', 'success');
+    return true;
+  };
+
+  const editCategory = (id, updatedFields) => {
+    setCategories(prev => prev.map(c => c.id === id ? {
+      ...c,
+      ...updatedFields
+    } : c));
+    showToast('Category updated successfully', 'success');
+    return true;
+  };
+
+  const deleteCategory = (id) => {
+    const hasProducts = products.some(p => p.categoryId === id);
+    if (hasProducts) {
+      showToast('Cannot delete category: products are assigned to it', 'error');
+      return false;
+    }
+    setCategories(prev => prev.filter(c => c.id !== id));
+    showToast('Category deleted successfully', 'success');
+    return true;
+  };
+
+  const setCategoryStatus = (id, newStatus) => {
+    setCategories(prev => prev.map(c => c.id === id ? {
+      ...c,
+      status: newStatus
+    } : c));
+    showToast(`Category ${newStatus === 'Active' ? 'activated' : 'deactivated'} successfully`, 'success');
+  };
+
+  const addProduct = (productData) => {
+    const newId = `prod-${Date.now()}`;
+    const generatedCode = `PROD-${productData.name.toUpperCase().replace(/[^A-Z0-9]/g, '-')}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+    const newProduct = {
+      ...productData,
+      id: newId,
+      productId: generatedCode,
+      status: 'Active',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    setProducts(prev => [...prev, newProduct]);
+    showToast('Product created successfully', 'success');
+    return true;
+  };
+
+  const editProduct = (id, updatedFields) => {
+    setProducts(prev => prev.map(p => p.id === id ? {
+      ...p,
+      ...updatedFields,
+      updatedAt: new Date().toISOString()
+    } : p));
+    showToast('Product updated successfully', 'success');
+    return true;
+  };
+
+  const deleteProduct = (id) => {
+    setProducts(prev => prev.filter(p => p.id !== id));
+    showToast('Product deleted successfully', 'success');
+    return true;
+  };
+
+  const setProductStatus = (id, newStatus) => {
+    setProducts(prev => prev.map(p => p.id === id ? {
+      ...p,
+      status: newStatus,
+      updatedAt: new Date().toISOString()
+    } : p));
+    showToast(`Product ${newStatus === 'Active' ? 'activated' : 'deactivated'} successfully`, 'success');
+  };
+
   return (
     <AppContext.Provider value={{
       isAuthenticated,
@@ -551,7 +691,17 @@ export const AppProvider = ({ children }) => {
       editGroup,
       deleteGroup,
       setGroupStatus,
-      assignPlaylistToGroup
+      assignPlaylistToGroup,
+      categories,
+      products,
+      addCategory,
+      editCategory,
+      deleteCategory,
+      setCategoryStatus,
+      addProduct,
+      editProduct,
+      deleteProduct,
+      setProductStatus
     }}>
       {children}
     </AppContext.Provider>
