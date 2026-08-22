@@ -24,6 +24,8 @@ const Devices = () => {
   const [viewState, setViewState] = useState('list'); // 'list' | 'add' | 'edit' | 'detail'
   const [selectedTVId, setSelectedTVId] = useState(null);
   const [slideIndex, setSlideIndex] = useState(0);
+  const [previewTV, setPreviewTV] = useState(null);
+  const [previewSlideIndex, setPreviewSlideIndex] = useState(0);
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -508,6 +510,31 @@ const Devices = () => {
     return () => clearTimeout(timer);
   }, [viewState, slideIndex, activeBanners.length]);
 
+  // Live Preview Modal Calculations
+  const previewPlaylist = previewTV ? getPlaylistAssignment(previewTV) : null;
+  const previewPlaylistRecord = previewPlaylist && previewPlaylist.playlistId
+    ? playlists.find(p => p.id === previewPlaylist.playlistId)
+    : null;
+  const previewBanners = previewPlaylistRecord && previewPlaylistRecord.banners
+    ? previewPlaylistRecord.banners.map(b => banners.find(item => item.id === b.bannerId)).filter(Boolean)
+    : [];
+
+  // Reset preview slide index on modal open
+  useEffect(() => {
+    setPreviewSlideIndex(0);
+  }, [previewTV]);
+
+  // Auto-play interval for preview modal
+  useEffect(() => {
+    if (!previewTV || previewBanners.length <= 1) return;
+    const currentBanner = previewBanners[previewSlideIndex];
+    const duration = currentBanner ? Number(currentBanner.duration) || 10 : 10;
+    const timer = setTimeout(() => {
+      setPreviewSlideIndex(prev => (prev + 1) % previewBanners.length);
+    }, duration * 1000);
+    return () => clearTimeout(timer);
+  }, [previewTV, previewSlideIndex, previewBanners.length]);
+
   return (
     <div>
       {/* Breadcrumb */}
@@ -679,7 +706,7 @@ const Devices = () => {
               data={flattenedTVs}
               onEdit={(row) => handleOpenEdit(row.originalTV || row)}
               onDelete={(row) => setConfirmDeleteTarget(row.originalTV || row)}
-              onView={(row) => handleRowClick(row.originalTV || row)}
+              onView={(row) => setPreviewTV(row.originalTV || row)}
               onRowClick={(row) => handleRowClick(row.originalTV || row)}
               searchQuery={searchQuery}
               searchField="name"
@@ -933,54 +960,71 @@ const Devices = () => {
                   {errors.name && <span className="form-error">{errors.name}</span>}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Allocated Branch <span className="required">*</span></label>
-                    <select 
-                      value={formData.branchId} 
-                      onChange={(e) => setFormData(prev => ({ ...prev, branchId: e.target.value }))}
-                      className="form-control"
-                      style={{ height: '34px' }}
-                    >
-                      {branches.filter(b => b.status === 'Active').map(b => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Display Network Group</label>
-                    <select 
-                      value={formData.groupId} 
-                      onChange={(e) => setFormData(prev => ({ ...prev, groupId: e.target.value }))}
-                      className="form-control"
-                      style={{ height: '34px' }}
-                    >
-                      <option value="">None (Isolated Screen)</option>
-                      {groups.map(g => (
-                        <option key={g.id} value={g.id}>{g.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                {/* Device connection code display */}
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Device Connection Pairing Code</span>
+                    <span style={{ fontSize: '10px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>Auto-generated</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    value={formData.tvId} 
+                    disabled 
+                    readOnly
+                    className="form-control"
+                    style={{ height: '34px', fontFamily: 'monospace', fontWeight: 700, fontSize: '14px', letterSpacing: '0.05em', backgroundColor: '#f1f5f9', cursor: 'not-allowed', color: '#334155' }}
+                  />
                 </div>
 
+                {/* Standby Fallback Playlist - Chip style list selection */}
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">Standby Fallback Playlist</label>
-                  <select 
-                    value={formData.playlistId} 
-                    onChange={(e) => setFormData(prev => ({ ...prev, playlistId: e.target.value }))}
-                    className="form-control"
-                    style={{ height: '34px' }}
-                  >
-                    <option value="">Standby Fallback Loop</option>
-                    {playlists.filter(p => p.status === 'Active').map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
-                  Hardware Identifier Code: <strong>{formData.tvId}</strong> (Auto-assigned)
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '8px', backgroundColor: '#fafafa' }}>
+                    <div 
+                      onClick={() => setFormData(prev => ({ ...prev, playlistId: '' }))}
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between', 
+                        padding: '8px 10px', 
+                        borderRadius: '4px', 
+                        cursor: 'pointer', 
+                        backgroundColor: !formData.playlistId ? 'var(--color-primary-light)' : '#fff', 
+                        border: !formData.playlistId ? '1px solid var(--color-primary)' : '1px solid #e2e8f0', 
+                        transition: 'all 0.15s',
+                        fontSize: '11px',
+                        fontWeight: 600
+                      }}
+                    >
+                      <span>Standby Fallback Loop (Default)</span>
+                      <input type="radio" checked={!formData.playlistId} readOnly style={{ accentColor: 'var(--color-primary)' }} />
+                    </div>
+                    {playlists.filter(p => p.status === 'Active').map(p => {
+                      const isSelected = formData.playlistId === p.id;
+                      return (
+                        <div 
+                          key={p.id}
+                          onClick={() => setFormData(prev => ({ ...prev, playlistId: p.id }))}
+                          style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'space-between', 
+                            padding: '8px 10px', 
+                            borderRadius: '4px', 
+                            cursor: 'pointer', 
+                            backgroundColor: isSelected ? 'var(--color-primary-light)' : '#fff', 
+                            border: isSelected ? '1px solid var(--color-primary)' : '1px solid #e2e8f0', 
+                            transition: 'all 0.15s',
+                            fontSize: '11px',
+                            fontWeight: 600
+                          }}
+                        >
+                          <span style={{ color: isSelected ? 'var(--color-primary)' : 'var(--color-text-main)' }}>{p.name}</span>
+                          <input type="radio" checked={isSelected} readOnly style={{ accentColor: 'var(--color-primary)' }} />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1059,39 +1103,41 @@ const Devices = () => {
                   </div>
                 )}
 
-                {/* 3. Playlists checklist */}
+                {/* 3. Playlists selection using Clean Chip-Style Cards list */}
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">Select Playlists (Multiple allowed)</label>
-                  <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', 
-                    gap: '8px', 
-                    border: '1px solid var(--color-border)', 
-                    borderRadius: '6px', 
-                    padding: '10px', 
-                    maxHeight: '110px', 
-                    overflowY: 'auto', 
-                    backgroundColor: '#ffffff' 
-                  }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '8px', backgroundColor: '#fafafa' }}>
                     {playlists.filter(p => p.status === 'Active').map(p => {
                       const isChecked = draftSlot.playlistIds.includes(p.id);
                       return (
-                        <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer', margin: 0 }}>
-                          <input 
-                            type="checkbox" 
-                            checked={isChecked}
-                            onChange={() => {
-                              setDraftSlot(prev => {
-                                const next = [...prev.playlistIds];
-                                const idx = next.indexOf(p.id);
-                                if (idx > -1) next.splice(idx, 1);
-                                else next.push(p.id);
-                                return { ...prev, playlistIds: next };
-                              });
-                            }}
-                          />
-                          <span>{p.name}</span>
-                        </label>
+                        <div 
+                          key={p.id}
+                          onClick={() => {
+                            setDraftSlot(prev => {
+                              const next = [...prev.playlistIds];
+                              const idx = next.indexOf(p.id);
+                              if (idx > -1) next.splice(idx, 1);
+                              else next.push(p.id);
+                              return { ...prev, playlistIds: next };
+                            });
+                          }}
+                          style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'space-between', 
+                            padding: '8px 10px', 
+                            borderRadius: '4px', 
+                            cursor: 'pointer', 
+                            backgroundColor: isChecked ? 'var(--color-primary-light)' : '#fff', 
+                            border: isChecked ? '1px solid var(--color-primary)' : '1px solid #e2e8f0', 
+                            transition: 'all 0.15s',
+                            fontSize: '11px',
+                            fontWeight: 600
+                          }}
+                        >
+                          <span style={{ color: isChecked ? 'var(--color-primary)' : 'var(--color-text-main)' }}>{p.name}</span>
+                          <input type="checkbox" checked={isChecked} readOnly style={{ accentColor: 'var(--color-primary)' }} />
+                        </div>
                       );
                     })}
                   </div>
@@ -1347,6 +1393,148 @@ const Devices = () => {
               >
                 Continue Editing
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── LIVE PREVIEW POPUP MODAL ─── */}
+      {previewTV && (
+        <div className="modal-overlay" style={{ zIndex: 1100 }}>
+          {/* Inject dynamic marquee and fade-in keyframes style */}
+          <style>{`
+            @keyframes previewFadeIn {
+              from { opacity: 0; transform: scale(0.96); }
+              to { opacity: 1; transform: scale(1); }
+            }
+            @keyframes marqueeLeftToRight {
+              0% { transform: translateX(-100%); }
+              100% { transform: translateX(100%); }
+            }
+          `}</style>
+          
+          <div className="modal-container" style={{ width: '640px', padding: '16px', animation: 'previewFadeIn 0.3s ease-out' }}>
+            <div className="modal-header" style={{ paddingBottom: '10px', marginBottom: '12px' }}>
+              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Tv size={16} style={{ color: 'var(--color-primary)' }} />
+                <span>Live Preview — {previewTV.name} ({previewTV.tvId})</span>
+              </h3>
+              <button className="modal-close" onClick={() => setPreviewTV(null)}><X size={16} /></button>
+            </div>
+            
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: 0 }}>
+              {previewBanners.length === 0 ? (
+                <div style={{
+                  width: '100%',
+                  aspectRatio: '16/9',
+                  backgroundColor: '#0f172a',
+                  border: '12px solid #1e293b',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#94a3b8'
+                }}>
+                  <Tv size={44} style={{ color: '#475569', marginBottom: '10px' }} />
+                  <span style={{ fontSize: '12px', fontWeight: 500 }}>No Active Playlist Assigned</span>
+                  <span style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>Inherits default standby system screen loop</span>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {/* Single TV Mockup Frame Bezel containing both Media & Description */}
+                  <div style={{
+                    width: '100%',
+                    backgroundColor: '#000000',
+                    border: '12px solid #1e293b',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden'
+                  }}>
+                    {/* Top Portion: Media Player viewport maintaining clean 16:9 aspect ratio */}
+                    <div style={{
+                      width: '100%',
+                      aspectRatio: '16/9',
+                      backgroundColor: '#000000',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <div 
+                        key={`preview-slide-${previewSlideIndex}`}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          animation: 'previewFadeIn 0.4s ease-in-out',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        {previewBanners[previewSlideIndex].mediaType === 'Video' ? (
+                          <video 
+                            src={previewBanners[previewSlideIndex].mediaUrl} 
+                            autoPlay 
+                            muted 
+                            loop 
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                          />
+                        ) : (
+                          <img 
+                            src={previewBanners[previewSlideIndex].mediaUrl} 
+                            alt={previewBanners[previewSlideIndex].name} 
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Bottom Portion: Description & Content area inside the same TV frame */}
+                    <div style={{
+                      backgroundColor: '#0f172a',
+                      borderTop: '3px solid #1e293b',
+                      padding: '12px 16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-primary)' }}>
+                        {previewBanners[previewSlideIndex].name}
+                      </div>
+                      
+                      {/* Scrolling marquee description moving Left-To-Right */}
+                      <div style={{ 
+                        width: '100%', 
+                        overflow: 'hidden', 
+                        whiteSpace: 'nowrap', 
+                        position: 'relative', 
+                        backgroundColor: '#1e293b', 
+                        padding: '6px 12px', 
+                        borderRadius: '4px',
+                        border: '1px solid rgba(255,255,255,0.05)'
+                      }}>
+                        <div style={{
+                          display: 'inline-block',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          color: '#e2e8f0',
+                          animation: 'marqueeLeftToRight 12s linear infinite'
+                        }}>
+                          Now Broadcasting: {previewBanners[previewSlideIndex].name} | Type: {previewBanners[previewSlideIndex].mediaType} | Loop Priority Resolution: {previewPlaylist.playlistName}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="modal-footer" style={{ padding: '12px 0 0 0', marginTop: '12px', borderTop: '1px solid var(--color-border)' }}>
+              <button className="btn btn-secondary" onClick={() => setPreviewTV(null)} style={{ marginLeft: 'auto' }}>Close Preview</button>
             </div>
           </div>
         </div>

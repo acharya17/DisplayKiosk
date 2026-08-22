@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   ChevronRight, Plus, Search, Filter, AlertTriangle, X,
-  ChevronLeft, Info, Percent, DollarSign, Calendar
+  ChevronLeft, Info, Percent, DollarSign, Calendar, Package
 } from 'lucide-react';
 import DataTable from '../components/table/DataTable';
 

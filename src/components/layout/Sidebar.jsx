@@ -10,8 +10,7 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
     {
       title: "General",
       items: [
-        { name: "Dashboard", path: "/overview", icon: LayoutDashboard },
-        { name: "Branches", path: "/branches", icon: Building2 }
+        { name: "Dashboard", path: "/overview", icon: LayoutDashboard }
       ]
     },
     {
@@ -19,7 +18,6 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
       items: [
         { name: "Banners", path: "/banners", icon: Image },
         { name: "Playlists", path: "/playlists", icon: ListMusic },
-        { name: "Display Groups", path: "/groups", icon: Layers },
         { name: "TVs / Devices", path: "/devices", icon: Tv }
       ]
     },

@@ -4,7 +4,7 @@ import {
   ChevronRight, Plus, Search, Filter, AlertTriangle, X, 
   ListMusic, Calendar, Image as ImageIcon, ArrowUp, ArrowDown, Trash2, 
   Play, Clock, ChevronLeft, Edit, AlertCircle, Film, RefreshCw, ServerCrash,
-  Upload, CheckCircle, GripVertical
+  Upload, CheckCircle, GripVertical, Eye, Tv
 } from 'lucide-react';
 import DataTable from '../components/table/DataTable';
 
@@ -21,6 +21,8 @@ const Playlists = () => {
   // Navigation State inside playlists workspace
   const [viewState, setViewState] = useState('list'); // 'list' | 'add' | 'edit' | 'detail'
   const [selectedPlaylistId, setSelectedPlaylistId] = useState(null);
+  const [previewPlaylistData, setPreviewPlaylistData] = useState(null);
+  const [previewSlideIndex, setPreviewSlideIndex] = useState(0);
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -391,6 +393,27 @@ const Playlists = () => {
 
   const currentSelectedPlaylist = playlists.find(p => p.id === selectedPlaylistId);
 
+  // Live Preview Modal Calculations
+  const previewBanners = previewPlaylistData && previewPlaylistData.banners
+    ? previewPlaylistData.banners.map(b => banners.find(item => item.id === b.bannerId)).filter(Boolean)
+    : [];
+
+  // Reset preview slide index on modal open
+  useEffect(() => {
+    setPreviewSlideIndex(0);
+  }, [previewPlaylistData]);
+
+  // Auto-play interval for preview modal
+  useEffect(() => {
+    if (!previewPlaylistData || previewBanners.length <= 1) return;
+    const currentBanner = previewBanners[previewSlideIndex];
+    const duration = currentBanner ? Number(currentBanner.duration) || 10 : 10;
+    const timer = setTimeout(() => {
+      setPreviewSlideIndex(prev => (prev + 1) % previewBanners.length);
+    }, duration * 1000);
+    return () => clearTimeout(timer);
+  }, [previewPlaylistData, previewSlideIndex, previewBanners.length]);
+
   return (
     <div>
       {/* Breadcrumb path navigation */}
@@ -482,6 +505,14 @@ const Playlists = () => {
               </div>
             ) : (
               <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  className="btn btn-outline" 
+                  onClick={() => setPreviewPlaylistData(formData)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Eye size={14} />
+                  <span>Preview</span>
+                </button>
                 <button className="btn btn-primary" onClick={handleSavePlaylist}>Save Playlist</button>
               </div>
             )
@@ -553,6 +584,7 @@ const Playlists = () => {
               data={filteredPlaylists}
               onEdit={handleOpenEdit}
               onDelete={(playlist) => setConfirmDeleteTarget(playlist)}
+              onView={(playlist) => setPreviewPlaylistData(playlist)}
               searchQuery={searchQuery}
               searchField="name"
               filters={activeFilters}
@@ -1090,6 +1122,148 @@ const Playlists = () => {
               >
                 Continue Editing
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── PLAYLIST LIVE PREVIEW POPUP MODAL ─── */}
+      {previewPlaylistData && (
+        <div className="modal-overlay" style={{ zIndex: 1100 }}>
+          {/* Inject dynamic marquee and fade-in keyframes style */}
+          <style>{`
+            @keyframes previewFadeIn {
+              from { opacity: 0; transform: scale(0.96); }
+              to { opacity: 1; transform: scale(1); }
+            }
+            @keyframes marqueeLeftToRight {
+              0% { transform: translateX(-100%); }
+              100% { transform: translateX(100%); }
+            }
+          `}</style>
+          
+          <div className="modal-container" style={{ width: '640px', padding: '16px', animation: 'previewFadeIn 0.3s ease-out' }}>
+            <div className="modal-header" style={{ paddingBottom: '10px', marginBottom: '12px' }}>
+              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Tv size={16} style={{ color: 'var(--color-primary)' }} />
+                <span>Playlist Preview — {previewPlaylistData.name || 'New Playlist'}</span>
+              </h3>
+              <button className="modal-close" onClick={() => setPreviewPlaylistData(null)}><X size={16} /></button>
+            </div>
+            
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: 0 }}>
+              {previewBanners.length === 0 ? (
+                <div style={{
+                  width: '100%',
+                  aspectRatio: '16/9',
+                  backgroundColor: '#0f172a',
+                  border: '12px solid #1e293b',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#94a3b8'
+                }}>
+                  <Tv size={44} style={{ color: '#475569', marginBottom: '10px' }} />
+                  <span style={{ fontSize: '12px', fontWeight: 500 }}>No Banners Configured</span>
+                  <span style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>Add banner assets to preview this playlist</span>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {/* Single TV Mockup Frame Bezel containing both Media & Description */}
+                  <div style={{
+                    width: '100%',
+                    backgroundColor: '#000000',
+                    border: '12px solid #1e293b',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden'
+                  }}>
+                    {/* Top Portion: Media Player viewport maintaining clean 16:9 aspect ratio */}
+                    <div style={{
+                      width: '100%',
+                      aspectRatio: '16/9',
+                      backgroundColor: '#000000',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <div 
+                        key={`preview-slide-${previewSlideIndex}`}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          animation: 'previewFadeIn 0.4s ease-in-out',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        {previewBanners[previewSlideIndex].mediaType === 'Video' ? (
+                          <video 
+                            src={previewBanners[previewSlideIndex].mediaUrl} 
+                            autoPlay 
+                            muted 
+                            loop 
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                          />
+                        ) : (
+                          <img 
+                            src={previewBanners[previewSlideIndex].mediaUrl} 
+                            alt={previewBanners[previewSlideIndex].name} 
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Bottom Portion: Description & Content area inside the same TV frame */}
+                    <div style={{
+                      backgroundColor: '#0f172a',
+                      borderTop: '3px solid #1e293b',
+                      padding: '12px 16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--color-primary)' }}>
+                        {previewBanners[previewSlideIndex].name}
+                      </div>
+                      
+                      {/* Scrolling marquee description moving Left-To-Right */}
+                      <div style={{ 
+                        width: '100%', 
+                        overflow: 'hidden', 
+                        whiteSpace: 'nowrap', 
+                        position: 'relative', 
+                        backgroundColor: '#1e293b', 
+                        padding: '6px 12px', 
+                        borderRadius: '4px',
+                        border: '1px solid rgba(255,255,255,0.05)'
+                      }}>
+                        <div style={{
+                          display: 'inline-block',
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          color: '#e2e8f0',
+                          animation: 'marqueeLeftToRight 12s linear infinite'
+                        }}>
+                          Now Broadcasting: {previewBanners[previewSlideIndex].name} | Type: {previewBanners[previewSlideIndex].mediaType} | Loop Sequence: Slide {previewSlideIndex + 1} of {previewBanners.length}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="modal-footer" style={{ padding: '12px 0 0 0', marginTop: '12px', borderTop: '1px solid var(--color-border)' }}>
+              <button className="btn btn-secondary" onClick={() => setPreviewPlaylistData(null)} style={{ marginLeft: 'auto' }}>Close Preview</button>
             </div>
           </div>
         </div>
