@@ -10,17 +10,24 @@ const Login = () => {
   const [password, setPassword] = useState('admin');
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [selectedRole, setSelectedRole] = useState('Admin'); // 'Admin' | 'Display' | 'Kiosk'
   
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/overview';
 
-  // If already authenticated, redirect to target page
+  // If already authenticated, redirect to target page depending on role choice
   React.useEffect(() => {
     if (isAuthenticated) {
-      navigate(from, { replace: true });
+      if (selectedRole === 'Display') {
+        navigate('/player/pair', { replace: true });
+      } else if (selectedRole === 'Kiosk') {
+        navigate('/kiosk/pair', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     }
-  }, [isAuthenticated, navigate, from]);
+  }, [isAuthenticated, navigate, from, selectedRole]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -31,7 +38,13 @@ const Login = () => {
       const success = login(username, password);
       setLoading(false);
       if (success) {
-        navigate(from, { replace: true });
+        if (selectedRole === 'Display') {
+          navigate('/player/pair', { replace: true });
+        } else if (selectedRole === 'Kiosk') {
+          navigate('/kiosk/pair', { replace: true });
+        } else {
+          navigate(from, { replace: true });
+        }
       }
     }, 600);
   };
@@ -84,7 +97,7 @@ const Login = () => {
             {business.name} Portal
           </h2>
           <p style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-            Please sign in to manage digital signage
+            Please sign in to access terminal workspaces
           </p>
         </div>
 
@@ -163,19 +176,34 @@ const Login = () => {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-        
-        {/* Mock credentials reminder */}
-        <div style={{
-          marginTop: '20px',
-          padding: '10px',
-          backgroundColor: '#f8fafc',
-          border: '1px dashed var(--color-border)',
-          borderRadius: '6px',
-          fontSize: '11px',
-          color: 'var(--color-text-secondary)',
-          textAlign: 'center'
-        }}>
-          Demo Credentials: <strong>admin</strong> / <strong>admin</strong>
+
+        {/* Role Selection Chips Section */}
+        <div style={{ marginTop: '20px', display: 'flex', gap: '8px' }}>
+          {['Admin', 'Display', 'Kiosk'].map((role) => {
+            const isActive = selectedRole === role;
+            return (
+              <button
+                key={role}
+                type="button"
+                onClick={() => setSelectedRole(role)}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  borderRadius: '20px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                  border: isActive ? '1px solid #fdba74' : '1px solid #e2e8f0',
+                  backgroundColor: isActive ? '#fff7ed' : '#f8fafc',
+                  color: isActive ? '#ea580c' : '#64748b',
+                  outline: 'none'
+                }}
+              >
+                {role}
+              </button>
+            );
+          })}
         </div>
       </div>
       <ToastContainer />

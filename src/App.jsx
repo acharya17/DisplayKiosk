@@ -11,6 +11,7 @@ import Playlists from './pages/Playlists';
 import Devices from './pages/Devices';
 import Groups from './pages/Groups';
 import TvPlayer from './pages/TvPlayer';
+import KioskPlayer from './pages/KioskPlayer';
 import KioskProducts from './pages/KioskProducts';
 import KioskCustomisations from './pages/KioskCustomisations';
 import KioskCombos from './pages/KioskCombos';
@@ -61,6 +62,7 @@ function App() {
           
           {/* Global Fallback */}
           <Route path="/player/:tvId" element={<TvPlayer />} />
+          <Route path="/kiosk/:kioskId" element={<KioskPlayer />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </Router>
