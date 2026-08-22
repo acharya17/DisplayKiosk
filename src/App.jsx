@@ -17,6 +17,7 @@ import KioskCombos from './pages/KioskCombos';
 import KioskTaxOffers from './pages/KioskTaxOffers';
 import Kiosks from './pages/Kiosks';
 import KioskOrders from './pages/KioskOrders';
+import KioskSettings from './pages/KioskSettings';
 import PlaceholderPage from './pages/PlaceholderPage';
 
 // Import CSS Styles
@@ -52,7 +53,7 @@ function App() {
             <Route path="kiosk-discounts" element={<KioskTaxOffers />} />
             <Route path="kiosks" element={<Kiosks />} />
             <Route path="kiosk-orders" element={<KioskOrders />} />
-            <Route path="kiosk-settings" element={<PlaceholderPage />} />
+            <Route path="kiosk-settings" element={<KioskSettings />} />
             
             {/* Fallback inside portal */}
             <Route path="*" element={<Navigate to="/overview" replace />} />

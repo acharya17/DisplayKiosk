@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { 
   ChevronRight, Plus, Search, Filter, AlertTriangle, X, 
   Tv, Monitor, CheckCircle, HelpCircle, Power, Clock, Edit2, Trash2, 
-  ChevronLeft, AlertCircle, RefreshCw, ServerCrash
+  ChevronLeft, AlertCircle, RefreshCw, ServerCrash, Play
 } from 'lucide-react';
 import DataTable from '../components/table/DataTable';
 
@@ -13,6 +13,7 @@ const Devices = () => {
     branches, 
     groups, 
     playlists, 
+    banners,
     addTV, 
     editTV, 
     deleteTV, 
@@ -22,6 +23,7 @@ const Devices = () => {
   // Layout View States
   const [viewState, setViewState] = useState('list'); // 'list' | 'add' | 'edit' | 'detail'
   const [selectedTVId, setSelectedTVId] = useState(null);
+  const [slideIndex, setSlideIndex] = useState(0);
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -483,6 +485,29 @@ const Devices = () => {
   const selectedTV = tvs.find(t => t.id === selectedTVId);
   const resolvedPlaylist = selectedTV ? getPlaylistAssignment(selectedTV) : null;
 
+  const playlistRecord = resolvedPlaylist && resolvedPlaylist.playlistId
+    ? playlists.find(p => p.id === resolvedPlaylist.playlistId)
+    : null;
+  const activeBanners = playlistRecord && playlistRecord.banners
+    ? playlistRecord.banners.map(b => banners.find(item => item.id === b.bannerId)).filter(Boolean)
+    : [];
+
+  // Reset slide index on screen selection
+  useEffect(() => {
+    setSlideIndex(0);
+  }, [selectedTVId]);
+
+  // Auto-play interval for slide preview
+  useEffect(() => {
+    if (viewState !== 'detail' || activeBanners.length <= 1) return;
+    const currentBanner = activeBanners[slideIndex];
+    const duration = currentBanner ? Number(currentBanner.duration) || 10 : 10;
+    const timer = setTimeout(() => {
+      setSlideIndex(prev => (prev + 1) % activeBanners.length);
+    }, duration * 1000);
+    return () => clearTimeout(timer);
+  }, [viewState, slideIndex, activeBanners.length]);
+
   return (
     <div>
       {/* Breadcrumb */}
@@ -654,75 +679,209 @@ const Devices = () => {
               data={flattenedTVs}
               onEdit={(row) => handleOpenEdit(row.originalTV || row)}
               onDelete={(row) => setConfirmDeleteTarget(row.originalTV || row)}
+              onView={(row) => handleRowClick(row.originalTV || row)}
+              onRowClick={(row) => handleRowClick(row.originalTV || row)}
               searchQuery={searchQuery}
               searchField="name"
               filters={activeFilters}
               keyField="id"
-              onRowClick={(row) => handleRowClick(row.originalTV || row)}
             />
           </>
         )
       ) : viewState === 'detail' && selectedTV ? (
         /* DETAIL VIEW SUB-PAGE */
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '24px', alignItems: 'start' }}>
-          {/* Left panel: Connection telemetry */}
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600 }}>Active Screen Telemetry</h3>
+          {/* Inject dynamic fade-in keyframes style */}
+          <style>{`
+            @keyframes slideFadeIn {
+              from { opacity: 0; transform: scale(0.98); }
+              to { opacity: 1; transform: scale(1); }
+            }
+          `}</style>
+          
+          {/* Left panel: Connection telemetry & Live player */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             
-            <div style={{ display: 'flex', gap: '20px', padding: '16px', backgroundColor: '#f8fafc', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Status Badge</span>
-                <span className={`badge badge-${selectedTV.status.toLowerCase()}`}>{selectedTV.status}</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Connection Pulse</span>
-                <span className={`badge ${selectedTV.connectionStatus === 'Online' ? 'badge-active' : 'badge-inactive'}`}>
-                  {selectedTV.connectionStatus}
-                </span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Last Heartbeat</span>
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>{new Date(selectedTV.lastSeen).toLocaleTimeString()}</span>
-              </div>
+            {/* Live TV Preview screen */}
+            <div className="card" style={{ padding: '16px' }}>
+              <h3 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '12px', borderBottom: '1px solid var(--color-border)', paddingBottom: '6px' }}>Live Display Preview</h3>
+              
+              {activeBanners.length === 0 ? (
+                <div style={{
+                  width: '100%',
+                  aspectRatio: '16/9',
+                  backgroundColor: '#0f172a',
+                  border: '12px solid #1e293b',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#94a3b8',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                }}>
+                  <Tv size={48} style={{ color: '#475569', marginBottom: '12px' }} />
+                  <span style={{ fontSize: '12px', fontWeight: 500 }}>No Active Playlist Assigned</span>
+                  <span style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>Displaying standby default loop output</span>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* TV Monitor Bezel Frame */}
+                  <div style={{
+                    width: '100%',
+                    aspectRatio: '16/9',
+                    backgroundColor: '#000000',
+                    border: '12px solid #1e293b',
+                    borderRadius: '8px',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    {/* Slide container with key change to trigger animation */}
+                    <div 
+                      key={`slide-${slideIndex}`}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        animation: 'slideFadeIn 0.5s ease-in-out',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        position: 'relative'
+                      }}
+                    >
+                      {activeBanners[slideIndex].mediaType === 'Video' ? (
+                        <video 
+                          src={activeBanners[slideIndex].mediaUrl} 
+                          autoPlay 
+                          muted 
+                          loop 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                        />
+                      ) : (
+                        <img 
+                          src={activeBanners[slideIndex].mediaUrl} 
+                          alt={activeBanners[slideIndex].name} 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                        />
+                      )}
+
+                      {/* Translucent bottom caption overlay */}
+                      <div style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                        borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                        padding: '10px 14px',
+                        color: '#ffffff',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '2px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-primary)' }}>{activeBanners[slideIndex].name}</span>
+                          <span style={{ fontSize: '9px', backgroundColor: 'rgba(255,255,255,0.15)', padding: '1px 6px', borderRadius: '3px', fontWeight: 600 }}>
+                            {activeBanners[slideIndex].mediaType} • {activeBanners[slideIndex].duration}s
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '10px', color: '#cbd5e1' }}>
+                          Playing Loop {slideIndex + 1} of {activeBanners.length} from {resolvedPlaylist.playlistName}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Manual Rotation Controls */}
+                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
+                    <button 
+                      className="btn btn-outline" 
+                      onClick={() => setSlideIndex(prev => (prev - 1 + activeBanners.length) % activeBanners.length)} 
+                      style={{ height: '28px', padding: '0 12px', fontSize: '11px' }}
+                    >
+                      Prev Slide
+                    </button>
+                    <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
+                      Slide {slideIndex + 1} / {activeBanners.length}
+                    </span>
+                    <button 
+                      className="btn btn-outline" 
+                      onClick={() => setSlideIndex(prev => (prev + 1) % activeBanners.length)} 
+                      style={{ height: '28px', padding: '0 12px', fontSize: '11px' }}
+                    >
+                      Next Slide
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div style={{ marginTop: '8px' }}>
-              <h4 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>Calculated Playlist Priority Resolution</h4>
-              <div style={{ padding: '12px', border: '1px solid var(--color-border)', borderRadius: '6px', backgroundColor: '#f8fafc' }}>
-                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Priority Mode</div>
-                <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--color-primary)', marginTop: '2px' }}>{resolvedPlaylist.type}</div>
-                
-                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '8px' }}>Active Loop Output</div>
-                <div style={{ fontWeight: 500, fontSize: '13px', marginTop: '2px' }}>{resolvedPlaylist.playlistName}</div>
-              </div>
-            </div>
-
-            {selectedTV.schedules && selectedTV.schedules.length > 0 && (
-              <div style={{ marginTop: '8px' }}>
-                <h4 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>Configured Recurring Time Slots</h4>
-                <div className="table-wrapper" style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                  <table className="data-table" style={{ fontSize: '12px' }}>
-                    <thead>
-                      <tr>
-                        <th>Time Period</th>
-                        <th>Assigned Playlist</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedTV.schedules.map((slot, idx) => {
-                        const pl = playlists.find(p => p.id === slot.playlistId);
-                        return (
-                          <tr key={slot.id || idx}>
-                            <td style={{ padding: '6px 12px' }}>{slot.startTime} – {slot.endTime}</td>
-                            <td style={{ padding: '6px 12px', fontWeight: 500 }}>{pl ? pl.name : 'Unknown Playlist'}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+            {/* Connection Telemetry info card */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '16px' }}>
+              <h3 style={{ fontSize: '13px', fontWeight: 600, margin: 0, borderBottom: '1px solid var(--color-border)', paddingBottom: '6px' }}>Active Screen Telemetry</h3>
+              
+              <div style={{ display: 'flex', gap: '20px', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Status Badge</span>
+                  <span className={`badge badge-${selectedTV.status.toLowerCase()}`}>{selectedTV.status}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Connection Pulse</span>
+                  <span className={`badge ${selectedTV.connectionStatus === 'Online' ? 'badge-active' : 'badge-inactive'}`}>
+                    {selectedTV.connectionStatus}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>Last Heartbeat</span>
+                  <span style={{ fontSize: '13px', fontWeight: 600 }}>{new Date(selectedTV.lastSeen).toLocaleTimeString()}</span>
                 </div>
               </div>
-            )}
+
+              <div style={{ marginTop: '4px' }}>
+                <h4 style={{ fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>Calculated Playlist Priority Resolution</h4>
+                <div style={{ padding: '12px', border: '1px solid var(--color-border)', borderRadius: '6px', backgroundColor: '#f8fafc' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px' }}>
+                    <span style={{ color: 'var(--color-text-secondary)' }}>Priority Mode:</span>
+                    <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>{resolvedPlaylist.type}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                    <span style={{ color: 'var(--color-text-secondary)' }}>Active Loop:</span>
+                    <span style={{ fontWeight: 500 }}>{resolvedPlaylist.playlistName}</span>
+                  </div>
+                </div>
+              </div>
+
+              {selectedTV.schedules && selectedTV.schedules.length > 0 && (
+                <div style={{ marginTop: '4px' }}>
+                  <h4 style={{ fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>Configured Recurring Time Slots</h4>
+                  <div className="table-wrapper" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                    <table className="data-table" style={{ fontSize: '11px' }}>
+                      <thead>
+                        <tr>
+                          <th>Time Period</th>
+                          <th>Assigned Playlist</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedTV.schedules.map((slot, idx) => {
+                          const pl = playlists.find(p => p.id === slot.playlistId);
+                          return (
+                            <tr key={slot.id || idx}>
+                              <td style={{ padding: '6px 12px' }}>{slot.startTime} – {slot.endTime}</td>
+                              <td style={{ padding: '6px 12px', fontWeight: 500 }}>{pl ? pl.name : 'Unknown Playlist'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Right panel: Attributes grid */}
@@ -760,18 +919,67 @@ const Devices = () => {
             {/* TV Screen Info */}
             <div className="card" style={{ padding: '16px' }}>
               <h3 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '12px', borderBottom: '1px solid var(--color-border)', paddingBottom: '6px' }}>TV Core Properties</h3>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">TV Display Name <span className="required">*</span></label>
-                <input 
-                  type="text" 
-                  value={formData.name} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g. Dining Hall TV"
-                  className={`form-control ${errors.name ? 'error' : ''}`}
-                  style={{ height: '34px' }}
-                />
-                {errors.name && <span className="form-error">{errors.name}</span>}
-                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '6px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">TV Display Name <span className="required">*</span></label>
+                  <input 
+                    type="text" 
+                    value={formData.name} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g. Dining Hall TV"
+                    className={`form-control ${errors.name ? 'error' : ''}`}
+                    style={{ height: '34px' }}
+                  />
+                  {errors.name && <span className="form-error">{errors.name}</span>}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Allocated Branch <span className="required">*</span></label>
+                    <select 
+                      value={formData.branchId} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, branchId: e.target.value }))}
+                      className="form-control"
+                      style={{ height: '34px' }}
+                    >
+                      {branches.filter(b => b.status === 'Active').map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Display Network Group</label>
+                    <select 
+                      value={formData.groupId} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, groupId: e.target.value }))}
+                      className="form-control"
+                      style={{ height: '34px' }}
+                    >
+                      <option value="">None (Isolated Screen)</option>
+                      {groups.map(g => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Standby Fallback Playlist</label>
+                  <select 
+                    value={formData.playlistId} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, playlistId: e.target.value }))}
+                    className="form-control"
+                    style={{ height: '34px' }}
+                  >
+                    <option value="">Standby Fallback Loop</option>
+                    {playlists.filter(p => p.status === 'Active').map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
                   Hardware Identifier Code: <strong>{formData.tvId}</strong> (Auto-assigned)
                 </div>
               </div>

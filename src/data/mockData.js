@@ -502,7 +502,10 @@ export const initialKiosks = [
     connection: "Online",
     lastActive: "2026-08-21T16:50:00Z",
     createdAt: "2026-08-20T10:00:00Z",
-    updatedAt: "2026-08-21T16:50:00Z"
+    updatedAt: "2026-08-21T16:50:00Z",
+    inactivityTimeout: 60,
+    showTimeoutWarning: true,
+    warningDuration: 10
   },
   {
     id: "kisk-2",
@@ -518,7 +521,10 @@ export const initialKiosks = [
     connection: "Offline",
     lastActive: "2026-08-21T14:30:00Z",
     createdAt: "2026-08-20T10:15:00Z",
-    updatedAt: "2026-08-21T14:30:00Z"
+    updatedAt: "2026-08-21T14:30:00Z",
+    inactivityTimeout: 90,
+    showTimeoutWarning: false,
+    warningDuration: 15
   },
   {
     id: "kisk-3",
@@ -534,7 +540,63 @@ export const initialKiosks = [
     connection: "Online",
     lastActive: "2026-08-21T16:52:00Z",
     createdAt: "2026-08-21T09:00:00Z",
-    updatedAt: "2026-08-21T16:52:00Z"
+    updatedAt: "2026-08-21T16:52:00Z",
+    inactivityTimeout: 60,
+    showTimeoutWarning: true,
+    warningDuration: 10
+  }
+];
+
+export const initialHardware = [
+  {
+    id: "prn-1",
+    deviceId: "PRN-001",
+    name: "Thermal Receipt Printer",
+    type: "Printer",
+    connection: "Connected",
+    configuration: "Configured",
+    kioskId: "kisk-1",
+    lastConnected: "2026-08-21T16:50:00Z"
+  },
+  {
+    id: "pos-1",
+    deviceId: "POS-001",
+    name: "Card Terminal Reader",
+    type: "Payment Terminal",
+    connection: "Connected",
+    configuration: "Configured",
+    kioskId: "kisk-1",
+    lastConnected: "2026-08-21T16:50:00Z"
+  },
+  {
+    id: "dsp-1",
+    deviceId: "DSP-001",
+    name: "Front Customer Screen",
+    type: "Customer Display",
+    connection: "Connected",
+    configuration: "Configured",
+    kioskId: "kisk-1",
+    lastConnected: "2026-08-21T16:50:00Z"
+  },
+  {
+    id: "prn-2",
+    deviceId: "PRN-002",
+    name: "Kitchen Ticket Printer",
+    type: "Printer",
+    connection: "Disconnected",
+    configuration: "Not Configured",
+    kioskId: "kisk-2",
+    lastConnected: "2026-08-21T14:30:00Z"
+  },
+  {
+    id: "pos-2",
+    deviceId: "POS-002",
+    name: "UPI QR Dynamic Display",
+    type: "Payment Terminal",
+    connection: "Connected",
+    configuration: "Configured",
+    kioskId: "kisk-2",
+    lastConnected: "2026-08-21T14:30:00Z"
   }
 ];
 

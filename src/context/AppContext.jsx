@@ -3,7 +3,7 @@ import {
   initialBusiness, initialBranches, initialBanners, initialDefaultContent, 
   initialPlaylists, initialTVs, initialGroups, initialCategories, initialProducts,
   initialCustomisations, initialCombos, initialTaxes, initialOffers, initialKiosks,
-  initialOrders, initialPayments
+  initialOrders, initialPayments, initialHardware
 } from '../data/mockData';
 
 const AppContext = createContext();
@@ -92,9 +92,9 @@ export const AppProvider = ({ children }) => {
     }));
   });
 
-  // Force cache flush for Phase 3, 4, 5 & 6 data schemas
+  // Force cache flush for Phase 3, 4, 5, 6 & 7 data schemas
   useEffect(() => {
-    const marker = localStorage.getItem('kiosk_p3_p4_p5_p6_marker');
+    const marker = localStorage.getItem('kiosk_p3_to_p7_marker');
     if (!marker) {
       localStorage.removeItem('kiosk_combos');
       localStorage.removeItem('kiosk_taxes');
@@ -102,8 +102,9 @@ export const AppProvider = ({ children }) => {
       localStorage.removeItem('kiosk_kiosks');
       localStorage.removeItem('kiosk_orders');
       localStorage.removeItem('kiosk_payments');
+      localStorage.removeItem('kiosk_hardware');
       localStorage.removeItem('kiosk_customisations_master');
-      localStorage.setItem('kiosk_p3_p4_p5_p6_marker', 'true');
+      localStorage.setItem('kiosk_p3_to_p7_marker', 'true');
       window.location.reload();
     }
   }, []);
@@ -200,6 +201,19 @@ export const AppProvider = ({ children }) => {
     return initialPayments;
   });
 
+  const [hardware, setHardware] = useState(() => {
+    const cached = localStorage.getItem('kiosk_hardware');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed.length !== initialHardware.length) {
+        localStorage.removeItem('kiosk_hardware');
+      } else {
+        return parsed;
+      }
+    }
+    return initialHardware;
+  });
+
   const [toasts, setToasts] = useState([]);
 
   // Auto-sync state variables to localStorage when changed
@@ -266,6 +280,10 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     localStorage.setItem('kiosk_payments', JSON.stringify(payments));
   }, [payments]);
+
+  useEffect(() => {
+    localStorage.setItem('kiosk_hardware', JSON.stringify(hardware));
+  }, [hardware]);
 
   // Toast helper
   const showToast = (message, type = 'success') => {
@@ -977,6 +995,17 @@ export const AppProvider = ({ children }) => {
     showToast(`Kiosk marked as ${newAvail}`, 'success');
   };
 
+  // ─── Hardware CRUD ───────────────────────────
+  const updateHardwareConfig = (id, fields) => {
+    setHardware(prev => prev.map(h => h.id === id ? { ...h, ...fields } : h));
+    showToast('Hardware settings configured successfully', 'success');
+  };
+
+  const setHardwareConnection = (id, status) => {
+    setHardware(prev => prev.map(h => h.id === id ? { ...h, connection: status } : h));
+    showToast(`Hardware connection state marked as ${status}`, 'success');
+  };
+
   return (
     <AppContext.Provider value={{
       isAuthenticated,
@@ -1056,7 +1085,10 @@ export const AppProvider = ({ children }) => {
       setKioskStatus,
       setKioskAvailability,
       orders,
-      payments
+      payments,
+      hardware,
+      updateHardwareConfig,
+      setHardwareConnection
     }}>
       {children}
     </AppContext.Provider>
